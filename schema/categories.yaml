@@ -1,0 +1,985 @@
+# Cloud resource category schema — the single source of truth.
+#
+# This schema is CONCEPT-FIRST: each entry describes a generic, cloud-agnostic
+# architectural category (e.g. "network", "kubernetes_cluster") and then maps it
+# onto concrete Terraform resource types per provider. Deploy-ordering edges are
+# modeled between the generic categories, not the provider resources.
+#
+# Entry shape:
+#   - id:            unique, snake_case category name (the generic concept).
+#     group:         one of the `groups` listed below (organizational only).
+#     description:   one-line human summary.
+#     terraformTypes: provider-keyed map. Every provider in `providers` must be
+#                    present. Use an empty list [] when a provider has no clean,
+#                    direct equivalent — never force a false mapping.
+#     deployAfter:    ids that must be deployed BEFORE this one — because this
+#                    concept's own config (or its standard companion resource)
+#                    references them at deploy time. Config-reference test; keep
+#                    sparse, acyclic, closest-node-only (see README.md).
+#
+# See README.md for the modeling philosophy and how to extend this file safely.
+
+providers:
+  - aws
+  - gcp
+  - azure
+
+groups:
+  - networking
+  - identity_security
+  - compute_container
+  - storage
+  - data_platform
+  - management_governance
+  - ai_ml
+  - devops_integration
+
+categories:
+  # ----------------------------------------------------------------------------
+  # Networking
+  # ----------------------------------------------------------------------------
+  - id: network
+    group: networking
+    description: Isolated virtual network (VPC / VNet).
+    terraformTypes:
+      aws: [aws_vpc]
+      gcp: [google_compute_network]
+      azure: [azurerm_virtual_network]
+    deployAfter: []
+
+  - id: subnet
+    group: networking
+    description: IP range carved out of a network.
+    terraformTypes:
+      aws: [aws_subnet]
+      gcp: [google_compute_subnetwork]
+      azure: [azurerm_subnet]
+    deployAfter: [network]
+
+  - id: route_table
+    group: networking
+    description: Routing rules that steer traffic within/out of a network.
+    terraformTypes:
+      aws: [aws_route_table, aws_route]
+      gcp: [google_compute_route]
+      azure: [azurerm_route_table, azurerm_route]
+    deployAfter: [network]
+
+  - id: internet_gateway
+    group: networking
+    description: Egress/ingress to the public internet for a network.
+    terraformTypes:
+      aws: [aws_internet_gateway]
+      gcp: []   # implicit via default internet routes; no standalone resource
+      azure: [] # implicit outbound; no standalone gateway resource
+    deployAfter: [network]
+
+  - id: nat_gateway
+    group: networking
+    description: Outbound-only internet access for private subnets.
+    terraformTypes:
+      aws: [aws_nat_gateway]
+      gcp: [google_compute_router_nat]
+      azure: [azurerm_nat_gateway]
+    deployAfter: [subnet, static_ip]
+
+  - id: firewall
+    group: networking
+    description: Stateful traffic filter / security group container.
+    terraformTypes:
+      aws: [aws_security_group]
+      gcp: []   # GCP has no SG container; rules attach directly (see firewall_rule)
+      azure: [azurerm_network_security_group]
+    deployAfter: [network]
+
+  - id: firewall_rule
+    group: networking
+    description: Individual ingress/egress rule (incl. AWS security group rules).
+    terraformTypes:
+      aws: [aws_security_group_rule, aws_vpc_security_group_ingress_rule, aws_vpc_security_group_egress_rule]
+      gcp: [google_compute_firewall]
+      azure: [azurerm_network_security_rule]
+    deployAfter: [firewall]
+
+  - id: load_balancer
+    group: networking
+    description: Distributes traffic across backends (L4/L7).
+    terraformTypes:
+      aws: [aws_lb, aws_lb_listener, aws_lb_target_group]
+      gcp: [google_compute_forwarding_rule, google_compute_backend_service, google_compute_url_map]
+      azure: [azurerm_lb, azurerm_application_gateway]
+    deployAfter: [subnet, firewall, tls_certificate, static_ip, identity]
+
+  - id: dns_zone
+    group: networking
+    description: Authoritative DNS namespace.
+    terraformTypes:
+      aws: [aws_route53_zone]
+      gcp: [google_dns_managed_zone]
+      azure: [azurerm_dns_zone, azurerm_private_dns_zone]
+    deployAfter: [network]
+
+  - id: dns_record
+    group: networking
+    description: A record set within a DNS zone.
+    terraformTypes:
+      aws: [aws_route53_record]
+      gcp: [google_dns_record_set]
+      azure: [azurerm_dns_a_record, azurerm_dns_cname_record]
+    deployAfter: [dns_zone]
+
+  - id: tls_certificate
+    group: networking
+    description: TLS/SSL certificate for terminating HTTPS.
+    terraformTypes:
+      aws: [aws_acm_certificate]
+      gcp: [google_compute_managed_ssl_certificate, google_certificate_manager_certificate]
+      azure: [azurerm_key_vault_certificate]
+    deployAfter: [secret_store]
+
+  - id: vpn_gateway
+    group: networking
+    description: Site-to-site / client VPN termination.
+    terraformTypes:
+      aws: [aws_vpn_gateway, aws_vpn_connection]
+      gcp: [google_compute_vpn_gateway, google_compute_vpn_tunnel]
+      azure: [azurerm_virtual_network_gateway, azurerm_virtual_network_gateway_connection]
+    deployAfter: [network, subnet, static_ip, transit_gateway]
+
+  - id: private_connectivity
+    group: networking
+    description: Private access to services without traversing the internet
+      (PrivateLink / Private Service Connect / Private Endpoint).
+    terraformTypes:
+      aws: [aws_vpc_endpoint, aws_vpc_endpoint_service]
+      gcp: [google_compute_service_attachment, google_service_networking_connection]
+      azure: [azurerm_private_endpoint, azurerm_private_link_service]
+    deployAfter: [network, subnet, firewall, load_balancer]
+
+  # ----------------------------------------------------------------------------
+  # Identity & security
+  # ----------------------------------------------------------------------------
+  - id: identity
+    group: identity_security
+    description: Workload/principal identity (IAM role / service account / managed identity).
+    terraformTypes:
+      aws: [aws_iam_role, aws_iam_instance_profile]
+      gcp: [google_service_account]
+      azure: [azurerm_user_assigned_identity]
+    deployAfter: []
+
+  - id: access_policy
+    group: identity_security
+    description: Permission grant / authorization rule attached to an identity.
+    terraformTypes:
+      aws: [aws_iam_policy, aws_iam_role_policy]
+      gcp: [google_project_iam_member, google_project_iam_binding]
+      azure: [azurerm_role_assignment, azurerm_role_definition]
+    deployAfter: [identity]
+
+  - id: encryption_key
+    group: identity_security
+    description: Managed encryption key (KMS / Key Vault key).
+    terraformTypes:
+      aws: [aws_kms_key, aws_kms_alias]
+      gcp: [google_kms_key_ring, google_kms_crypto_key]
+      azure: [azurerm_key_vault_key]
+    deployAfter: []
+
+  - id: secret
+    group: identity_security
+    description: An individual stored secret value.
+    terraformTypes:
+      aws: [aws_secretsmanager_secret, aws_secretsmanager_secret_version]
+      gcp: [google_secret_manager_secret, google_secret_manager_secret_version]
+      azure: [azurerm_key_vault_secret]
+    deployAfter: [secret_store]
+
+  # ----------------------------------------------------------------------------
+  # Compute & containers
+  # ----------------------------------------------------------------------------
+  - id: compute_instance
+    group: compute_container
+    description: Virtual machine.
+    terraformTypes:
+      aws: [aws_instance]
+      gcp: [google_compute_instance]
+      azure: [azurerm_linux_virtual_machine, azurerm_windows_virtual_machine]
+    deployAfter: [subnet, firewall, identity, machine_image, ssh_key_pair, placement_group, dedicated_host, network_interface]
+
+  - id: autoscaling_group
+    group: compute_container
+    description: Self-healing, auto-scaling fleet of VMs.
+    terraformTypes:
+      aws: [aws_autoscaling_group, aws_launch_template]
+      gcp: [google_compute_instance_group_manager, google_compute_autoscaler]
+      azure: [azurerm_linux_virtual_machine_scale_set, azurerm_windows_virtual_machine_scale_set]
+    deployAfter: [subnet, firewall, identity, machine_image, ssh_key_pair, placement_group, dedicated_host, load_balancer, volume_snapshot]
+
+  - id: serverless_function
+    group: compute_container
+    description: Event-driven function-as-a-service.
+    terraformTypes:
+      aws: [aws_lambda_function]
+      gcp: [google_cloudfunctions2_function, google_cloudfunctions_function]
+      azure: [azurerm_linux_function_app, azurerm_windows_function_app]
+    deployAfter: [identity, object_storage, subnet, container_registry, firewall]
+
+  - id: container_registry
+    group: compute_container
+    description: Stores and serves container images.
+    terraformTypes:
+      aws: [aws_ecr_repository]
+      gcp: [google_artifact_registry_repository]
+      azure: [azurerm_container_registry]
+    deployAfter: []
+
+  - id: container_service
+    group: compute_container
+    description: Long-running container service (ECS service / Cloud Run / Container Apps).
+    terraformTypes:
+      aws: [aws_ecs_service]
+      gcp: [google_cloud_run_v2_service]
+      azure: [azurerm_container_app]
+    deployAfter: [container_environment, container_task_definition, subnet, firewall, load_balancer, container_registry, identity]
+
+  - id: kubernetes_cluster
+    group: compute_container
+    description: Managed Kubernetes control plane (EKS / GKE / AKS).
+    terraformTypes:
+      aws: [aws_eks_cluster]
+      gcp: [google_container_cluster]
+      azure: [azurerm_kubernetes_cluster]
+    deployAfter: [subnet, firewall, identity]
+
+  - id: kubernetes_node_pool
+    group: compute_container
+    description: Group of worker nodes attached to a Kubernetes cluster.
+    terraformTypes:
+      aws: [aws_eks_node_group]
+      gcp: [google_container_node_pool]
+      azure: [azurerm_kubernetes_cluster_node_pool]
+    deployAfter: [kubernetes_cluster, subnet, firewall, identity, ssh_key_pair]
+
+  - id: container_task_definition
+    group: compute_container
+    description: Declarative container task spec (ECS task definition).
+    terraformTypes:
+      aws: [aws_ecs_task_definition]
+      gcp: []   # Cloud Run inlines the container spec on the service/job
+      azure: [] # Container Apps inlines the container spec on the app
+    deployAfter: [identity, container_registry, file_storage]
+
+  - id: container_service_autoscaling
+    group: compute_container
+    description: Scaling policy/target for a container service (ECS Application Auto Scaling).
+    terraformTypes:
+      aws: [aws_appautoscaling_target, aws_appautoscaling_policy]
+      gcp: []   # Cloud Run autoscales implicitly
+      azure: [] # Container Apps scale rules are inline on the app
+    deployAfter: [container_service, identity]
+
+  - id: container_job
+    group: compute_container
+    description: Run-to-completion batch/container job (AWS Batch / Cloud Run Jobs / Container Apps Jobs).
+    terraformTypes:
+      aws: [aws_batch_job_definition]
+      gcp: [google_cloud_run_v2_job]
+      azure: [azurerm_container_app_job]
+    deployAfter: [identity, container_registry, container_environment, subnet, secret]
+
+  - id: container_instance
+    group: compute_container
+    description: Single standalone container without an orchestrator (Azure Container Instances).
+    terraformTypes:
+      aws: []   # no single-container resource; use ECS/Fargate (container_service)
+      gcp: []   # use Cloud Run (container_service)
+      azure: [azurerm_container_group]
+    deployAfter: [identity, container_registry, subnet, object_storage, logging]
+
+  # ----------------------------------------------------------------------------
+  # Storage
+  # ----------------------------------------------------------------------------
+  - id: object_storage
+    group: storage
+    description: Bucket-based object/blob storage.
+    terraformTypes:
+      aws: [aws_s3_bucket]
+      gcp: [google_storage_bucket]
+      azure: [azurerm_storage_account, azurerm_storage_container]
+    deployAfter: []
+
+  - id: block_storage
+    group: storage
+    description: Attachable raw block volume.
+    terraformTypes:
+      aws: [aws_ebs_volume]
+      gcp: [google_compute_disk]
+      azure: [azurerm_managed_disk]
+    deployAfter: [object_storage]
+
+  - id: file_storage
+    group: storage
+    description: Managed network file share (NFS/SMB).
+    terraformTypes:
+      aws: [aws_efs_file_system, aws_efs_mount_target]
+      gcp: [google_filestore_instance]
+      azure: [azurerm_storage_share]
+    deployAfter: [subnet, firewall, object_storage]
+
+  - id: archive_storage
+    group: storage
+    description: Cold/archival storage for rarely accessed data.
+    terraformTypes:
+      aws: [aws_glacier_vault]
+      gcp: []   # an "ARCHIVE" storage class of object_storage, not a separate resource
+      azure: [] # an archive blob access tier, not a separate resource
+    deployAfter: []
+
+  - id: backup
+    group: storage
+    description: Scheduled backups / snapshot policies and their vaults.
+    terraformTypes:
+      aws: [aws_backup_vault, aws_backup_plan]
+      gcp: [google_compute_resource_policy]
+      azure: [azurerm_recovery_services_vault, azurerm_backup_policy_vm]
+    deployAfter: [identity]
+
+  # ----------------------------------------------------------------------------
+  # Data & platform services
+  # ----------------------------------------------------------------------------
+  - id: relational_database
+    group: data_platform
+    description: Managed relational (SQL) database — see nosql_database for non-relational stores.
+    terraformTypes:
+      aws: [aws_db_instance, aws_rds_cluster]
+      gcp: [google_sql_database_instance]
+      azure: [azurerm_postgresql_flexible_server, azurerm_mysql_flexible_server, azurerm_mssql_server]
+    deployAfter: [subnet, firewall, identity, dns_zone]
+
+  - id: cache
+    group: data_platform
+    description: Managed in-memory cache (Redis / Memcached).
+    terraformTypes:
+      aws: [aws_elasticache_cluster, aws_elasticache_replication_group]
+      gcp: [google_redis_instance]
+      azure: [azurerm_redis_cache]
+    deployAfter: [subnet, firewall]
+
+  - id: message_bus
+    group: data_platform
+    description: Publish/subscribe broadcast topic (see event_bus for rule-based routing).
+    terraformTypes:
+      aws: [aws_sns_topic]
+      gcp: [google_pubsub_topic]
+      azure: [azurerm_servicebus_topic]
+    deployAfter: []
+
+  - id: queue
+    group: data_platform
+    description: Point-to-point message queue.
+    terraformTypes:
+      aws: [aws_sqs_queue]
+      gcp: [google_cloud_tasks_queue]
+      azure: [azurerm_servicebus_queue, azurerm_storage_queue]
+    deployAfter: [object_storage]
+
+  - id: stream
+    group: data_platform
+    description: Ordered, replayable event/data stream.
+    terraformTypes:
+      aws: [aws_kinesis_stream]
+      gcp: []   # GCP uses Pub/Sub (see message_bus) for streaming; no Kinesis-equivalent store
+      azure: [azurerm_eventhub]
+    deployAfter: []
+
+  - id: analytics_warehouse
+    group: data_platform
+    description: Managed analytics / data warehouse.
+    terraformTypes:
+      aws: [aws_redshift_cluster]
+      gcp: [google_bigquery_dataset]
+      azure: [azurerm_synapse_workspace, azurerm_synapse_sql_pool]
+    deployAfter: [subnet, firewall, identity, object_storage]
+
+  - id: logging
+    group: data_platform
+    description: Log collection, storage, and routing.
+    terraformTypes:
+      aws: [aws_cloudwatch_log_group]
+      gcp: [google_logging_project_sink, google_logging_project_bucket_config]
+      azure: [azurerm_log_analytics_workspace]
+    deployAfter: []
+
+  - id: monitoring
+    group: data_platform
+    description: Metrics, alarms, and dashboards.
+    terraformTypes:
+      aws: [aws_cloudwatch_metric_alarm, aws_cloudwatch_dashboard]
+      gcp: [google_monitoring_alert_policy, google_monitoring_dashboard]
+      azure: [azurerm_monitor_metric_alert, azurerm_monitor_action_group]
+    deployAfter: [message_bus]
+
+  - id: tracing
+    group: data_platform
+    description: Distributed request tracing.
+    terraformTypes:
+      aws: [aws_xray_sampling_rule, aws_xray_group]
+      gcp: []   # Cloud Trace is API-enabled; no provisioning resource
+      azure: [azurerm_application_insights]
+    deployAfter: [logging]
+
+  - id: application_config
+    group: data_platform
+    description: Non-secret application configuration / parameter store.
+    terraformTypes:
+      aws: [aws_ssm_parameter, aws_appconfig_application]
+      gcp: [google_runtimeconfig_config]
+      azure: [azurerm_app_configuration]
+    deployAfter: [identity]
+
+  - id: scheduler
+    group: data_platform
+    description: Cron/recurring task trigger.
+    terraformTypes:
+      aws: [aws_scheduler_schedule]
+      gcp: [google_cloud_scheduler_job]
+      azure: [azurerm_logic_app_trigger_recurrence]
+    deployAfter: [identity, workflow]
+
+  - id: secret_store
+    group: data_platform
+    description: Managed secret store / vault that holds secrets (see `secret`).
+    terraformTypes:
+      aws: []   # Secrets Manager is a managed service; secrets are the units (see `secret`)
+      gcp: []   # Secret Manager is API-enabled; secrets are the units (see `secret`)
+      azure: [azurerm_key_vault]
+    deployAfter: []
+
+  - id: api_gateway
+    group: data_platform
+    description: Managed API front door (routing, auth, throttling).
+    terraformTypes:
+      aws: [aws_api_gateway_rest_api, aws_apigatewayv2_api]
+      gcp: [google_api_gateway_api, google_api_gateway_gateway]
+      azure: [azurerm_api_management, azurerm_api_management_api]
+    deployAfter: [tls_certificate, subnet, identity, static_ip, private_connectivity]
+
+  - id: cdn
+    group: data_platform
+    description: Content delivery network / edge cache.
+    terraformTypes:
+      aws: [aws_cloudfront_distribution]
+      gcp: [google_compute_backend_bucket]
+      azure: [azurerm_cdn_profile, azurerm_cdn_endpoint]
+    deployAfter: [tls_certificate, object_storage, load_balancer, waf]
+
+  - id: full_text_search
+    group: data_platform
+    description: Managed lexical full-text search / indexing (see vector_search for embeddings).
+    terraformTypes:
+      aws: [aws_opensearch_domain]
+      gcp: []   # no first-class managed search resource in Terraform
+      azure: [azurerm_search_service]
+    deployAfter: [subnet, firewall, identity]
+
+  - id: nosql_database
+    group: data_platform
+    description: Managed non-relational document / key-value database.
+    terraformTypes:
+      aws: [aws_dynamodb_table, aws_dynamodb_global_table]
+      gcp: [google_firestore_database]
+      azure: [azurerm_cosmosdb_account, azurerm_cosmosdb_sql_database, azurerm_cosmosdb_sql_container]
+    deployAfter: [subnet, identity]
+
+  - id: wide_column_database
+    group: data_platform
+    description: Petabyte-scale wide-column / columnar NoSQL store (Bigtable / Cassandra model).
+    terraformTypes:
+      aws: [aws_keyspaces_keyspace, aws_keyspaces_table]
+      gcp: [google_bigtable_instance, google_bigtable_table]
+      azure: [azurerm_cosmosdb_cassandra_cluster, azurerm_cosmosdb_cassandra_keyspace]
+    deployAfter: [subnet]
+
+  - id: time_series_database
+    group: data_platform
+    description: Purpose-built time-series store for high-cardinality timestamped data.
+    terraformTypes:
+      aws: [aws_timestreamwrite_database, aws_timestreamwrite_table]
+      gcp: []   # no dedicated managed TSDB; Bigtable is the usual substrate
+      azure: [azurerm_kusto_cluster, azurerm_kusto_database]
+    deployAfter: [identity]
+
+  - id: managed_kafka
+    group: data_platform
+    description: Managed Apache Kafka broker cluster (Kafka wire-protocol streaming).
+    terraformTypes:
+      aws: [aws_msk_cluster, aws_msk_serverless_cluster]
+      gcp: [google_managed_kafka_cluster, google_managed_kafka_topic]
+      azure: [azurerm_hdinsight_kafka_cluster]
+    deployAfter: [subnet, firewall, object_storage, identity]
+
+  - id: event_bus
+    group: data_platform
+    description: Rule-based event router / event bus with content filtering (vs broadcast message_bus).
+    terraformTypes:
+      aws: [aws_cloudwatch_event_bus, aws_cloudwatch_event_rule, aws_cloudwatch_event_target]
+      gcp: [google_eventarc_trigger]
+      azure: [azurerm_eventgrid_topic, azurerm_eventgrid_system_topic, azurerm_eventgrid_event_subscription]
+    deployAfter: [identity]
+
+  - id: notification
+    group: data_platform
+    description: Multi-channel end-user notification delivery (push / SMS / email).
+    terraformTypes:
+      aws: [aws_pinpoint_app, aws_sns_platform_application]
+      gcp: []   # no managed multi-channel notification service with TF resources
+      azure: [azurerm_notification_hub, azurerm_notification_hub_namespace]
+    deployAfter: [identity]
+
+  - id: data_pipeline
+    group: data_platform
+    description: Managed ETL/ELT batch & streaming data transformation jobs.
+    terraformTypes:
+      aws: [aws_glue_job, aws_glue_trigger, aws_glue_crawler]
+      gcp: [google_dataflow_job, google_data_fusion_instance]
+      azure: [azurerm_data_factory, azurerm_data_factory_pipeline]
+    deployAfter: [object_storage, identity, subnet]
+
+  - id: data_catalog
+    group: data_platform
+    description: Central metadata catalog, schema registry, and data-lake governance.
+    terraformTypes:
+      aws: [aws_glue_catalog_database, aws_glue_catalog_table, aws_lakeformation_resource]
+      gcp: [google_dataplex_lake, google_dataplex_zone, google_dataplex_asset]
+      azure: [azurerm_purview_account]
+    deployAfter: [object_storage, identity]
+
+  - id: database_migration
+    group: data_platform
+    description: Managed database migration & continuous replication (CDC) service.
+    terraformTypes:
+      aws: [aws_dms_replication_instance, aws_dms_replication_task, aws_dms_endpoint]
+      gcp: [google_database_migration_service_connection_profile]
+      azure: [azurerm_database_migration_service, azurerm_database_migration_project]
+    deployAfter: [relational_database, network, identity, subnet, firewall, secret]
+
+  - id: vector_search
+    group: data_platform
+    description: Managed vector / embedding index for similarity search (RAG, semantic search).
+    terraformTypes:
+      aws: [aws_opensearchserverless_collection]
+      gcp: [google_vertex_ai_index, google_vertex_ai_index_endpoint]
+      azure: []   # vector search is a capability of azurerm_search_service (see full_text_search)
+    deployAfter: [network, object_storage]
+
+  # ----------------------------------------------------------------------------
+  # Networking (additions)
+  # ----------------------------------------------------------------------------
+  - id: vpc_peering
+    group: networking
+    description: Direct private network-to-network peering (non-transitive).
+    terraformTypes:
+      aws: [aws_vpc_peering_connection, aws_vpc_peering_connection_accepter]
+      gcp: [google_compute_network_peering]
+      azure: [azurerm_virtual_network_peering]
+    deployAfter: [network]
+
+  - id: network_interface
+    group: networking
+    description: Attachable elastic NIC / vNIC carrying private IPs in a subnet.
+    terraformTypes:
+      aws: [aws_network_interface, aws_network_interface_attachment]
+      gcp: []   # no standalone NIC resource; defined inline on google_compute_instance
+      azure: [azurerm_network_interface, azurerm_network_interface_security_group_association]
+    deployAfter: [subnet, firewall, static_ip, load_balancer]
+
+  - id: static_ip
+    group: networking
+    description: Reserved static public/internal IP address.
+    terraformTypes:
+      aws: [aws_eip, aws_eip_association]
+      gcp: [google_compute_address, google_compute_global_address]
+      azure: [azurerm_public_ip, azurerm_public_ip_prefix]
+    deployAfter: [network, subnet]
+
+  - id: waf
+    group: networking
+    description: Layer-7 web application firewall / managed rule set (vs L3-4 firewall).
+    terraformTypes:
+      aws: [aws_wafv2_web_acl, aws_wafv2_web_acl_association, aws_wafv2_rule_group]
+      gcp: [google_compute_security_policy]
+      azure: [azurerm_web_application_firewall_policy]
+    deployAfter: [load_balancer, api_gateway, paas_application]
+
+  - id: network_acl
+    group: networking
+    description: Stateless subnet-level allow/deny ACL (distinct from stateful firewall).
+    terraformTypes:
+      aws: [aws_network_acl, aws_network_acl_rule, aws_network_acl_association]
+      gcp: []   # no stateless subnet ACL; firewall rules are stateful
+      azure: []   # NSGs are stateful (mapped under firewall)
+    deployAfter: [subnet]
+
+  - id: transit_gateway
+    group: networking
+    description: Hub-and-spoke transit fabric interconnecting many networks and on-prem.
+    terraformTypes:
+      aws: [aws_ec2_transit_gateway, aws_ec2_transit_gateway_vpc_attachment, aws_ec2_transit_gateway_route_table]
+      gcp: [google_network_connectivity_hub, google_network_connectivity_spoke]
+      azure: [azurerm_virtual_wan, azurerm_virtual_hub, azurerm_virtual_hub_connection]
+    deployAfter: [subnet]
+
+  - id: hybrid_interconnect
+    group: networking
+    description: Dedicated private leased-line connectivity to on-prem (DirectConnect / Interconnect / ExpressRoute).
+    terraformTypes:
+      aws: [aws_dx_connection, aws_dx_gateway, aws_dx_virtual_interface]
+      gcp: [google_compute_interconnect, google_compute_interconnect_attachment]
+      azure: [azurerm_express_route_circuit, azurerm_express_route_connection, azurerm_express_route_gateway]
+    deployAfter: [network]
+
+  - id: flow_log
+    group: networking
+    description: Capture of IP traffic metadata for a network/subnet/NIC.
+    terraformTypes:
+      aws: [aws_flow_log]
+      gcp: []   # enabled via log_config on google_compute_subnetwork
+      azure: [azurerm_network_watcher_flow_log]
+    deployAfter: [network, subnet, network_interface, logging, identity]
+
+  - id: dns_resolver
+    group: networking
+    description: Inbound/outbound DNS resolver endpoints and forwarding rules for hybrid DNS.
+    terraformTypes:
+      aws: [aws_route53_resolver_endpoint, aws_route53_resolver_rule, aws_route53_resolver_rule_association]
+      gcp: [google_dns_policy]
+      azure: [azurerm_private_dns_resolver, azurerm_private_dns_resolver_inbound_endpoint, azurerm_private_dns_resolver_outbound_endpoint]
+    deployAfter: [subnet, firewall]
+
+  - id: ddos_protection
+    group: networking
+    description: Managed volumetric DDoS mitigation.
+    terraformTypes:
+      aws: [aws_shield_protection, aws_shield_protection_group]
+      gcp: []   # delivered via Cloud Armor adaptive protection (see waf)
+      azure: [azurerm_network_ddos_protection_plan]
+    deployAfter: [load_balancer, cdn, static_ip, global_accelerator, dns_zone]
+
+  - id: bastion
+    group: networking
+    description: Managed jump-host for secure admin access to private networks.
+    terraformTypes:
+      aws: []   # achieved via SSM Session Manager, no managed bastion resource
+      gcp: []   # achieved via IAP TCP forwarding, no managed bastion resource
+      azure: [azurerm_bastion_host]
+    deployAfter: [subnet, static_ip]
+
+  - id: global_traffic_manager
+    group: networking
+    description: DNS-based global traffic routing / failover across regions.
+    terraformTypes:
+      aws: [aws_route53_traffic_policy, aws_route53_traffic_policy_instance]
+      gcp: []   # geo/failover routing is inline on google_dns_record_set
+      azure: [azurerm_traffic_manager_profile, azurerm_traffic_manager_azure_endpoint, azurerm_traffic_manager_external_endpoint]
+    deployAfter: [dns_zone]
+
+  - id: service_discovery
+    group: networking
+    description: Service registry mapping logical service names to instances/IPs.
+    terraformTypes:
+      aws: [aws_service_discovery_service, aws_service_discovery_private_dns_namespace, aws_service_discovery_http_namespace]
+      gcp: [google_service_directory_namespace, google_service_directory_service, google_service_directory_endpoint]
+      azure: []   # relies on Private DNS / internal DNS, no dedicated resource
+    deployAfter: [network]
+
+  # ----------------------------------------------------------------------------
+  # Compute & containers (additions)
+  # ----------------------------------------------------------------------------
+  - id: paas_application
+    group: compute_container
+    description: Fully-managed source-to-URL PaaS web/app platform.
+    terraformTypes:
+      aws: [aws_elastic_beanstalk_application, aws_elastic_beanstalk_environment, aws_apprunner_service]
+      gcp: [google_app_engine_standard_app_version, google_app_engine_flexible_app_version]
+      azure: [azurerm_service_plan, azurerm_linux_web_app, azurerm_windows_web_app]
+    deployAfter: [identity, subnet, container_registry]
+
+  - id: container_environment
+    group: compute_container
+    description: Cluster/environment boundary that container services run inside.
+    terraformTypes:
+      aws: [aws_ecs_cluster, aws_ecs_capacity_provider, aws_ecs_cluster_capacity_providers]
+      gcp: []   # Cloud Run has no explicit environment object
+      azure: [azurerm_container_app_environment]
+    deployAfter: [subnet, logging, autoscaling_group, identity]
+
+  - id: machine_image
+    group: compute_container
+    description: Golden/custom VM boot image used as a template for instances.
+    terraformTypes:
+      aws: [aws_ami, aws_ami_copy, aws_ami_from_instance]
+      gcp: [google_compute_image, google_compute_machine_image]
+      azure: [azurerm_image, azurerm_shared_image_gallery, azurerm_shared_image, azurerm_shared_image_version]
+    deployAfter: [volume_snapshot, object_storage]
+
+  - id: batch_compute_environment
+    group: compute_container
+    description: Managed batch/HPC compute environment that autoscales jobs to completion.
+    terraformTypes:
+      aws: [aws_batch_compute_environment, aws_batch_job_queue]
+      gcp: []   # GCP Batch has no native Terraform resource
+      azure: [azurerm_batch_account, azurerm_batch_pool]
+    deployAfter: [subnet, firewall, identity, placement_group, ssh_key_pair, machine_image, object_storage, secret_store]
+
+  - id: edge_function
+    group: compute_container
+    description: Lightweight compute running at CDN/edge POPs.
+    terraformTypes:
+      aws: [aws_cloudfront_function]
+      gcp: []   # edge logic is config on the CDN, not a standalone resource
+      azure: []   # edge logic is config on Front Door, not a standalone resource
+    deployAfter: []
+
+  - id: service_mesh
+    group: compute_container
+    description: Managed service mesh control plane for service-to-service traffic.
+    terraformTypes:
+      aws: [aws_appmesh_mesh, aws_appmesh_virtual_service, aws_appmesh_virtual_node, aws_appmesh_virtual_router]
+      gcp: [google_network_services_mesh]
+      azure: []   # Istio/OSM addons, no clean standalone resource
+    deployAfter: [service_discovery, tls_certificate, private_certificate_authority]
+
+  - id: workflow
+    group: compute_container
+    description: Managed multi-step workflow / state-machine orchestration.
+    terraformTypes:
+      aws: [aws_sfn_state_machine]
+      gcp: [google_workflows_workflow]
+      azure: [azurerm_logic_app_workflow, azurerm_logic_app_standard]
+    deployAfter: [identity]
+
+  # ----------------------------------------------------------------------------
+  # Storage (additions)
+  # ----------------------------------------------------------------------------
+  - id: volume_snapshot
+    group: storage
+    description: Point-in-time snapshot of a block volume (vs managed backup vaults).
+    terraformTypes:
+      aws: [aws_ebs_snapshot, aws_ebs_snapshot_copy]
+      gcp: [google_compute_snapshot]
+      azure: [azurerm_snapshot]
+    deployAfter: [block_storage]
+
+  # ----------------------------------------------------------------------------
+  # Identity & security (additions)
+  # ----------------------------------------------------------------------------
+  - id: identity_provider
+    group: identity_security
+    description: Federated identity trust (SAML/OIDC providers, workforce/workload identity).
+    terraformTypes:
+      aws: [aws_iam_saml_provider, aws_iam_openid_connect_provider]
+      gcp: [google_iam_workload_identity_pool, google_iam_workload_identity_pool_provider, google_iam_workforce_pool]
+      azure: [azuread_application_registration, azuread_service_principal, azuread_application_federated_identity_credential]
+    deployAfter: []
+
+  - id: private_certificate_authority
+    group: identity_security
+    description: Private PKI / certificate authority issuing internal X.509 certs.
+    terraformTypes:
+      aws: [aws_acmpca_certificate_authority, aws_acmpca_certificate]
+      gcp: [google_privateca_ca_pool, google_privateca_certificate_authority, google_privateca_certificate]
+      azure: []   # no native managed private CA; typically Key Vault + external CA
+    deployAfter: [object_storage]
+
+  - id: managed_hsm
+    group: identity_security
+    description: Dedicated single-tenant hardware security module backing key storage.
+    terraformTypes:
+      aws: [aws_cloudhsm_v2_cluster, aws_cloudhsm_v2_hsm]
+      gcp: []   # exposed as protection_level=HSM on google_kms_crypto_key, not a resource
+      azure: [azurerm_key_vault_managed_hardware_security_module]
+    deployAfter: [subnet, tls_certificate]
+
+  - id: ssh_key_pair
+    group: identity_security
+    description: Named SSH public-key resource for VM/instance access.
+    terraformTypes:
+      aws: [aws_key_pair]
+      gcp: []   # set via instance/project metadata ssh-keys, not a resource
+      azure: [azurerm_ssh_public_key]
+    deployAfter: []
+
+  # ----------------------------------------------------------------------------
+  # Management & governance
+  # ----------------------------------------------------------------------------
+  - id: resource_container
+    group: management_governance
+    description: Account/project/subscription + org-hierarchy container that scopes resources, IAM, and billing.
+    terraformTypes:
+      aws: [aws_organizations_organization, aws_organizations_organizational_unit, aws_organizations_account]
+      gcp: [google_folder, google_project]
+      azure: [azurerm_management_group, azurerm_resource_group]
+    deployAfter: []
+
+  - id: audit_log
+    group: management_governance
+    description: Account/org-level audit & activity trail (vs application logging).
+    terraformTypes:
+      aws: [aws_cloudtrail]
+      gcp: [google_project_iam_audit_config]
+      azure: [azurerm_monitor_diagnostic_setting, azurerm_monitor_aad_diagnostic_setting]
+    deployAfter: [resource_container, logging, object_storage, identity]
+
+  - id: compliance_rule
+    group: management_governance
+    description: Policy-as-code guardrails & config-compliance (Config / Org Policy / Azure Policy / SCP).
+    terraformTypes:
+      aws: [aws_config_config_rule, aws_config_configuration_recorder, aws_organizations_policy]
+      gcp: [google_org_policy_policy, google_project_organization_policy]
+      azure: [azurerm_policy_definition, azurerm_policy_set_definition, azurerm_management_group_policy_assignment, azurerm_subscription_policy_assignment]
+    deployAfter: [resource_container, identity]
+
+  - id: threat_detection
+    group: management_governance
+    description: Managed threat detection & cloud security posture management.
+    terraformTypes:
+      aws: [aws_guardduty_detector, aws_securityhub_account, aws_inspector2_enabler]
+      gcp: [google_scc_source, google_scc_notification_config]
+      azure: [azurerm_security_center_subscription_pricing, azurerm_security_center_contact]
+    deployAfter: [resource_container]
+
+  - id: budget
+    group: management_governance
+    description: Cost/budget controls with spend thresholds and alerting.
+    terraformTypes:
+      aws: [aws_budgets_budget]
+      gcp: [google_billing_budget]
+      azure: [azurerm_consumption_budget_subscription, azurerm_consumption_budget_resource_group]
+    deployAfter: [resource_container]
+
+  # ----------------------------------------------------------------------------
+  # AI / ML
+  # ----------------------------------------------------------------------------
+  - id: ml_platform
+    group: ai_ml
+    description: Managed ML workspace / training platform (jobs, pipelines, model registry).
+    terraformTypes:
+      aws: [aws_sagemaker_domain, aws_sagemaker_pipeline, aws_sagemaker_model_package_group]
+      gcp: [google_vertex_ai_dataset, google_vertex_ai_metadata_store]
+      azure: [azurerm_machine_learning_workspace]
+    deployAfter: [object_storage, identity, subnet, firewall, file_storage, tracing, secret_store, container_registry]
+
+  - id: ml_model_endpoint
+    group: ai_ml
+    description: Managed online/real-time inference endpoint serving a trained model.
+    terraformTypes:
+      aws: [aws_sagemaker_endpoint, aws_sagemaker_endpoint_configuration, aws_sagemaker_model]
+      gcp: [google_vertex_ai_endpoint]
+      azure: [azurerm_machine_learning_inference_cluster]
+    deployAfter: [ml_platform, identity, object_storage, container_registry, subnet, firewall, kubernetes_cluster]
+
+  - id: generative_ai_endpoint
+    group: ai_ml
+    description: Managed foundation-model / generative-AI service (LLM, embeddings, RAG).
+    terraformTypes:
+      aws: [aws_bedrock_custom_model, aws_bedrockagent_agent, aws_bedrockagent_knowledge_base]
+      gcp: []   # Vertex/Gemini access is API/IAM-driven (deploy via ml_model_endpoint)
+      azure: [azurerm_cognitive_account, azurerm_cognitive_deployment]
+    deployAfter: [identity, object_storage, vector_search, secret, relational_database, subnet]
+
+  # ----------------------------------------------------------------------------
+  # DevOps & integration
+  # ----------------------------------------------------------------------------
+  - id: cicd_pipeline
+    group: devops_integration
+    description: Managed CI/CD build & deploy pipeline.
+    terraformTypes:
+      aws: [aws_codepipeline, aws_codebuild_project]
+      gcp: [google_cloudbuild_trigger, google_clouddeploy_delivery_pipeline]
+      azure: [azuredevops_build_definition]
+    deployAfter: [source_repository, identity, object_storage, subnet, firewall]
+
+  - id: artifact_repository
+    group: devops_integration
+    description: Managed package/artifact registry (npm, Maven, PyPI — non-container).
+    terraformTypes:
+      aws: [aws_codeartifact_domain, aws_codeartifact_repository]
+      gcp: []   # google_artifact_registry_repository (see container_registry) also serves packages via format
+      azure: [azuredevops_feed]
+    deployAfter: []
+
+  - id: source_repository
+    group: devops_integration
+    description: Managed Git source-code repository.
+    terraformTypes:
+      aws: [aws_codecommit_repository]
+      gcp: [google_sourcerepo_repository]
+      azure: [azuredevops_git_repository]
+    deployAfter: [identity]
+
+  # ----------------------------------------------------------------------------
+  # Round-2 additions
+  # ----------------------------------------------------------------------------
+  - id: directory_service
+    group: identity_security
+    description: Managed directory (Microsoft AD / LDAP) for domain-joined resources.
+    terraformTypes:
+      aws: [aws_directory_service_directory]
+      gcp: [google_active_directory_domain]
+      azure: [azurerm_active_directory_domain_service]
+    deployAfter: [subnet]
+
+  - id: feature_store
+    group: ai_ml
+    description: Centralized online/offline ML feature store for training and serving.
+    terraformTypes:
+      aws: [aws_sagemaker_feature_group]
+      gcp: [google_vertex_ai_feature_online_store, google_vertex_ai_feature_group]
+      azure: []   # no first-class azurerm resource; managed feature store is SDK/AzAPI
+    deployAfter: [object_storage, identity, data_catalog, analytics_warehouse]
+
+  - id: managed_notebook
+    group: ai_ml
+    description: Managed interactive notebook / data-science workbench environment.
+    terraformTypes:
+      aws: [aws_sagemaker_notebook_instance]
+      gcp: [google_workbench_instance]
+      azure: [azurerm_machine_learning_compute_instance]
+    deployAfter: [subnet, identity, ml_platform, firewall, static_ip, container_registry]
+
+  - id: placement_group
+    group: compute_container
+    description: Placement strategy controlling physical proximity/spread of instances.
+    terraformTypes:
+      aws: [aws_placement_group]
+      gcp: []   # expressed via google_compute_resource_policy group_placement (shared with backup)
+      azure: [azurerm_proximity_placement_group]
+    deployAfter: []
+
+  - id: global_accelerator
+    group: networking
+    description: Anycast static-IP edge ingress routed over the cloud backbone to regional endpoints.
+    terraformTypes:
+      aws: [aws_globalaccelerator_accelerator, aws_globalaccelerator_listener, aws_globalaccelerator_endpoint_group]
+      gcp: []   # delivered via global external load balancing; no discrete resource
+      azure: []   # Front Door covers this capability; no discrete equivalent
+    deployAfter: [load_balancer, static_ip]
+
+  - id: email_service
+    group: data_platform
+    description: Managed transactional email sending service.
+    terraformTypes:
+      aws: [aws_sesv2_email_identity, aws_ses_domain_identity, aws_ses_configuration_set]
+      gcp: []   # no native managed email service (typically SendGrid/Mailgun partners)
+      azure: [azurerm_email_communication_service, azurerm_email_communication_service_domain]
+    deployAfter: []
+
+  - id: dedicated_host
+    group: compute_container
+    description: Physically dedicated single-tenant host that instances are pinned to.
+    terraformTypes:
+      aws: [aws_ec2_host]
+      gcp: [google_compute_node_group, google_compute_node_template]
+      azure: [azurerm_dedicated_host, azurerm_dedicated_host_group]
+    deployAfter: []

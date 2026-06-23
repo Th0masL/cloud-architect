@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloud-architect"
+version = "0.1.0"
+description = "Concept-first, provider-aware cloud resource category schema (AWS / GCP / Azure)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+cloud-architect-validate = "cloud_architect.validate:main"
+
+[tool.setuptools]
+packages = ["cloud_architect"]
+
+[tool.pytest.ini_options]
+# Run from a checkout: put the repo root on sys.path so `cloud_architect` imports
+# without an install, and point the schema loader at schema/categories.yaml.
+pythonpath = ["."]
+testpaths = ["tests"]

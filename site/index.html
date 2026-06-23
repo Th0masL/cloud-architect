@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cloud-architect — deploy-order graph</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --ink: #e2e8f0;
+    --muted: #94a3b8;
+    --line: #334155;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .sub { color: var(--muted); font-size: 12.5px; }
+  header .sub code { color: var(--accent); }
+  .toolbar {
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .toolbar input[type="search"] {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 7px; padding: 6px 10px; width: 220px; font-size: 13px; outline: none;
+  }
+  .toolbar input[type="search"]:focus { border-color: var(--accent); }
+  .btn {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 7px; padding: 6px 10px; cursor: pointer; font-size: 13px;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .legend { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+    padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--panel-2); font-size: 12px;
+  }
+  .chip .dot { width: 11px; height: 11px; border-radius: 3px; }
+  .chip.off { opacity: 0.4; text-decoration: line-through; }
+  .spacer { flex: 1; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #graph { flex: 1; overflow: auto; position: relative; background:
+      radial-gradient(circle at 1px 1px, #1e293b 1px, transparent 0) 0 0 / 26px 26px; }
+  #panel {
+    width: 340px; border-left: 1px solid var(--line); background: var(--panel);
+    padding: 16px; overflow-y: auto;
+  }
+  #panel h2 { font-size: 15px; margin: 0 0 2px; }
+  #panel .grouptag {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    margin-bottom: 10px;
+  }
+  #panel .desc { color: var(--muted); margin: 0 0 14px; }
+  #panel h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 16px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px;
+  }
+  .tf-prov { font-weight: 600; color: var(--ink); }
+  .tf-list { color: var(--muted); margin: 2px 0 8px; }
+  .tf-list code {
+    background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px;
+    display: inline-block; margin: 2px 3px 0 0;
+  }
+  .tf-empty { color: #64748b; font-style: italic; }
+  .relrow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    cursor: pointer; font-size: 12px; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
+  }
+  .pill:hover { border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 13px; }
+  .stat { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+
+  /* SVG element states */
+  .node rect { transition: opacity .12s; cursor: pointer; }
+  .node text { pointer-events: none; }
+  .edge { fill: none; stroke: var(--line); stroke-width: 1.4; transition: opacity .12s, stroke .12s; }
+  .dim { opacity: 0.10; }
+  .edge.hl { stroke: var(--accent); stroke-width: 2; opacity: 0.95; }
+  .node.sel rect { stroke-width: 3 !important; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>cloud-architect</h1>
+    <span class="sub">concept deploy-order graph &nbsp;·&nbsp; an arrow <code>A → B</code> means <b>A deploys after B</b> (deploy B first)</span>
+  </header>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search categories…" autocomplete="off" />
+    <div class="legend" id="legend"></div>
+    <div class="spacer"></div>
+    <button class="btn" id="zoom-out">−</button>
+    <button class="btn" id="zoom-reset">Reset zoom</button>
+    <button class="btn" id="zoom-in">+</button>
+    <button class="btn" id="clear">Clear selection</button>
+  </div>
+
+  <main>
+    <div id="graph"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <aside id="panel"></aside>
+  </main>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  const DATA = window.GRAPH_DATA;
+  if (!DATA) { document.getElementById("panel").textContent = "Could not load data.js"; return; }
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const GROUP_COLORS = {
+    networking:            "#38bdf8",
+    identity_security:     "#f87171",
+    compute_container:     "#a78bfa",
+    storage:               "#fbbf24",
+    data_platform:         "#34d399",
+    management_governance: "#e879f9",
+    ai_ml:                 "#22d3ee",
+    devops_integration:    "#a3e635",
+  };
+  const GROUP_LABEL = {
+    networking: "networking",
+    identity_security: "identity & security",
+    compute_container: "compute & containers",
+    storage: "storage",
+    data_platform: "data & platform",
+    management_governance: "management & governance",
+    ai_ml: "AI / ML",
+    devops_integration: "devops & integration",
+  };
+  const NODE_W = 212, NODE_H = 34, COL_GAP = 300, ROW_GAP = 50, MARGIN = 44;
+
+  // ---- index the schema -----------------------------------------------------
+  const cats = DATA.categories;
+  const byId = new Map(cats.map(c => [c.id, c]));
+  const groupOrder = new Map(DATA.groups.map((g, i) => [g, i]));
+  const dependents = new Map(cats.map(c => [c.id, []]));   // reverse edges
+  for (const c of cats) for (const dep of c.deployAfter) {
+    if (dependents.has(dep)) dependents.get(dep).push(c.id);
+  }
+
+  // ---- compute layered depth (longest path from a no-dependency node) -------
+  const depth = new Map();
+  function depthOf(id, stack) {
+    if (depth.has(id)) return depth.get(id);
+    stack = stack || new Set();
+    if (stack.has(id)) return 0;            // cycle guard (schema is acyclic)
+    stack.add(id);
+    const deps = byId.get(id).deployAfter;
+    const d = deps.length ? 1 + Math.max(...deps.map(x => depthOf(x, stack))) : 0;
+    stack.delete(id);
+    depth.set(id, d);
+    return d;
+  }
+  cats.forEach(c => depthOf(c.id));
+  const maxDepth = Math.max(...depth.values());
+
+  // ---- order nodes within each column, then assign positions ----------------
+  const layers = [];
+  for (let d = 0; d <= maxDepth; d++) layers[d] = cats.filter(c => depth.get(c.id) === d).map(c => c.id);
+  const maxCount = Math.max(...layers.map(l => l.length));
+  const contentH = maxCount * ROW_GAP;
+  const pos = new Map();   // id -> {x,y,cx,cy}
+
+  const byGroupThenId = (a, b) =>
+    (groupOrder.get(byId.get(a).group) - groupOrder.get(byId.get(b).group)) || a.localeCompare(b);
+
+  for (let d = 0; d <= maxDepth; d++) {
+    const col = layers[d];
+    if (d === 0) {
+      col.sort(byGroupThenId);
+    } else {
+      // barycenter: order by the mean vertical position of already-placed deps
+      col.sort((a, b) => {
+        const ka = bary(a), kb = bary(b);
+        return (ka - kb) || byGroupThenId(a, b);
+      });
+    }
+    const colH = col.length * ROW_GAP;
+    const startY = (contentH - colH) / 2 + MARGIN;
+    col.forEach((id, i) => {
+      const x = MARGIN + d * COL_GAP;
+      const y = startY + i * ROW_GAP;
+      pos.set(id, { x, y, cx: x + NODE_W / 2, cy: y + NODE_H / 2 });
+    });
+  }
+  function bary(id) {
+    const deps = byId.get(id).deployAfter.filter(p => pos.has(p));
+    if (!deps.length) return 1e9;
+    return deps.reduce((s, p) => s + pos.get(p).cy, 0) / deps.length;
+  }
+
+  const CONTENT_W = MARGIN * 2 + maxDepth * COL_GAP + NODE_W;
+  const CONTENT_H = contentH + MARGIN * 2;
+
+  // ---- build SVG ------------------------------------------------------------
+  const svg = document.getElementById("svg");
+  svg.setAttribute("viewBox", `0 0 ${CONTENT_W} ${CONTENT_H}`);
+
+  const defs = el("defs");
+  defs.appendChild(marker("arrow", "#64748b"));
+  defs.appendChild(marker("arrow-hl", GROUP_COLORS_ACCENT()));
+  svg.appendChild(defs);
+
+  const edgeLayer = el("g");
+  const nodeLayer = el("g");
+  svg.appendChild(edgeLayer);
+  svg.appendChild(nodeLayer);
+
+  const edgeEls = [];   // {el, from, to}
+  for (const c of cats) {
+    for (const dep of c.deployAfter) {
+      if (!pos.has(dep)) continue;
+      const s = pos.get(c.id), t = pos.get(dep);       // s = dependent, t = dependency
+      const sx = s.x, sy = s.cy, tx = t.x + NODE_W, ty = t.cy;
+      const mx = (sx + tx) / 2;
+      const path = el("path", { class: "edge", d: `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`,
+                                "marker-end": "url(#arrow)" });
+      path.dataset.from = c.id; path.dataset.to = dep;
+      edgeLayer.appendChild(path);
+      edgeEls.push({ el: path, from: c.id, to: dep });
+    }
+  }
+
+  const nodeEls = new Map();
+  for (const c of cats) {
+    const p = pos.get(c.id);
+    const color = GROUP_COLORS[c.group] || "#94a3b8";
+    const g = el("g", { class: "node" });
+    g.dataset.id = c.id;
+    const rect = el("rect", { x: p.x, y: p.y, width: NODE_W, height: NODE_H, rx: 8,
+      fill: color, "fill-opacity": 0.16, stroke: color, "stroke-width": 1.6 });
+    const text = el("text", { x: p.x + NODE_W / 2, y: p.y + NODE_H / 2 + 4,
+      "text-anchor": "middle", "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+      "font-size": 11.5, fill: "var(--ink)" });
+    text.textContent = c.id;
+    g.appendChild(rect); g.appendChild(text);
+    g.addEventListener("click", (e) => { e.stopPropagation(); select(c.id); });
+    nodeLayer.appendChild(g);
+    nodeEls.set(c.id, g);
+  }
+
+  document.getElementById("graph").addEventListener("click", clearSelection);
+
+  // ---- selection / highlighting --------------------------------------------
+  let selected = null;
+  function ancestors(id, acc) { acc = acc || new Set();
+    for (const d of byId.get(id).deployAfter) if (!acc.has(d)) { acc.add(d); ancestors(d, acc); } return acc; }
+  function descendants(id, acc) { acc = acc || new Set();
+    for (const d of dependents.get(id)) if (!acc.has(d)) { acc.add(d); descendants(d, acc); } return acc; }
+
+  function select(id) {
+    selected = id;
+    const anc = ancestors(id), desc = descendants(id);
+    const keep = new Set([id, ...anc, ...desc]);
+    nodeEls.forEach((g, nid) => {
+      g.classList.toggle("dim", !keep.has(nid));
+      g.classList.toggle("sel", nid === id);
+    });
+    for (const e of edgeEls) {
+      // an edge is on the highlighted neighbourhood if it lies on a chain through `id`
+      const onChain = (keep.has(e.from) && keep.has(e.to)) &&
+                      ((anc.has(e.to) || e.to === id) && (anc.has(e.from) || e.from === id) ||
+                       (desc.has(e.from) || e.from === id) && (desc.has(e.to) || e.to === id));
+      e.el.classList.toggle("hl", onChain);
+      e.el.classList.toggle("dim", !onChain);
+      e.el.setAttribute("marker-end", onChain ? "url(#arrow-hl)" : "url(#arrow)");
+    }
+    renderPanel(id, anc, desc);
+    applyGroupFilter();
+    const g = nodeEls.get(id);
+    if (g) g.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  }
+
+  function clearSelection() {
+    selected = null;
+    nodeEls.forEach(g => g.classList.remove("dim", "sel"));
+    for (const e of edgeEls) { e.el.classList.remove("hl", "dim"); e.el.setAttribute("marker-end", "url(#arrow)"); }
+    document.getElementById("search").value = "";
+    applyGroupFilter();
+    renderIntro();
+  }
+
+  // ---- side panel -----------------------------------------------------------
+  const panel = document.getElementById("panel");
+  function renderIntro() {
+    const edges = cats.reduce((s, c) => s + c.deployAfter.length, 0);
+    const roots = cats.filter(c => c.deployAfter.length === 0).length;
+    panel.innerHTML = `
+      <h2>Deploy-order graph</h2>
+      <p class="hint">An arrow A → B means A deploys after B. Click a node to highlight its full
+        deploy-order neighbourhood (everything that must deploy before it, and everything that
+        deploys after it) and see its details here.</p>
+      <h3>At a glance</h3>
+      <p class="stat">${cats.length} categories · ${edges} deployAfter edges · ${DATA.providers.length} providers</p>
+      <p class="stat">${roots} foundational categories (deploy first) · ${maxDepth + 1} deploy-order layers</p>
+      <p class="stat">Columns are layered by deploy depth: foundations on the left, later-deploying services on the right.</p>`;
+  }
+  function renderPanel(id, anc, desc) {
+    const c = byId.get(id);
+    const color = GROUP_COLORS[c.group];
+    const tf = DATA.providers.map(p => {
+      const types = c.terraformTypes[p] || [];
+      const body = types.length
+        ? types.map(t => `<code>${esc(t)}</code>`).join(" ")
+        : `<span class="tf-empty">— no direct equivalent</span>`;
+      return `<div class="tf-prov">${p}</div><div class="tf-list">${body}</div>`;
+    }).join("");
+    panel.innerHTML = `
+      <h2>${esc(c.id)}</h2>
+      <span class="grouptag" style="background:${color}28;color:${color}">${GROUP_LABEL[c.group] || c.group}</span>
+      <p class="desc">${esc(c.description)}</p>
+      <h3>Terraform types</h3>${tf}
+      <h3>Deploys after (${c.deployAfter.length})</h3>${relRow(c.deployAfter)}
+      <h3>Deploys before (${dependents.get(id).length})</h3>${relRow(dependents.get(id))}
+      <h3>Transitive</h3>
+      <p class="stat">deploys after ${anc.size} categories in total · ${desc.size} categories deploy after it (directly or indirectly)</p>`;
+    panel.querySelectorAll(".pill").forEach(p =>
+      p.addEventListener("click", () => select(p.dataset.id)));
+  }
+  function relRow(ids) {
+    if (!ids.length) return `<p class="tf-empty">none</p>`;
+    return `<div class="relrow">` +
+      ids.slice().sort().map(i => `<span class="pill" data-id="${esc(i)}">${esc(i)}</span>`).join("") +
+      `</div>`;
+  }
+
+  // ---- legend / group filter ------------------------------------------------
+  const activeGroups = new Set(DATA.groups);
+  const legend = document.getElementById("legend");
+  for (const g of DATA.groups) {
+    const chip = document.createElement("span");
+    chip.className = "chip"; chip.dataset.group = g;
+    chip.innerHTML = `<span class="dot" style="background:${GROUP_COLORS[g]}"></span>${GROUP_LABEL[g] || g}`;
+    chip.addEventListener("click", () => {
+      if (activeGroups.has(g)) activeGroups.delete(g); else activeGroups.add(g);
+      chip.classList.toggle("off", !activeGroups.has(g));
+      applyGroupFilter();
+    });
+    legend.appendChild(chip);
+  }
+  function applyGroupFilter() {
+    nodeEls.forEach((el, id) => {
+      el.style.display = activeGroups.has(byId.get(id).group) ? "" : "none";
+    });
+    for (const e of edgeEls) {
+      const vis = activeGroups.has(byId.get(e.from).group) && activeGroups.has(byId.get(e.to).group);
+      e.el.style.display = vis ? "" : "none";
+    }
+  }
+
+  // ---- search ---------------------------------------------------------------
+  document.getElementById("search").addEventListener("input", (ev) => {
+    const q = ev.target.value.trim().toLowerCase();
+    if (!q) { if (selected) select(selected); else nodeEls.forEach(g => g.classList.remove("dim")); return; }
+    selected = null;
+    nodeEls.forEach((g, id) => {
+      const c = byId.get(id);
+      const hit = id.includes(q) || c.description.toLowerCase().includes(q) ||
+        DATA.providers.some(p => (c.terraformTypes[p] || []).some(t => t.toLowerCase().includes(q)));
+      g.classList.toggle("dim", !hit);
+      g.classList.remove("sel");
+    });
+    for (const e of edgeEls) e.el.classList.add("dim");
+  });
+
+  // ---- zoom (resize the SVG; native scrollbars pan) -------------------------
+  let scale = 1;
+  function applyZoom() {
+    svg.setAttribute("width", CONTENT_W * scale);
+    svg.setAttribute("height", CONTENT_H * scale);
+  }
+  document.getElementById("zoom-in").onclick = () => { scale = Math.min(2.4, scale * 1.2); applyZoom(); };
+  document.getElementById("zoom-out").onclick = () => { scale = Math.max(0.3, scale / 1.2); applyZoom(); };
+  document.getElementById("zoom-reset").onclick = () => { scale = 1; applyZoom(); };
+  document.getElementById("clear").onclick = clearSelection;
+  document.getElementById("graph").addEventListener("wheel", (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;   // ctrl/cmd + wheel to zoom
+    e.preventDefault();
+    scale = Math.min(2.4, Math.max(0.3, scale * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+    applyZoom();
+  }, { passive: false });
+
+  // ---- helpers --------------------------------------------------------------
+  function el(name, attrs) {
+    const n = document.createElementNS(SVG_NS, name);
+    if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function marker(id, color) {
+    const m = el("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5,
+      markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" });
+    m.appendChild(el("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color }));
+    return m;
+  }
+  function GROUP_COLORS_ACCENT() { return "#38bdf8"; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, ch =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+
+  // ---- go -------------------------------------------------------------------
+  applyZoom();
+  renderIntro();
+})();
+</script>
+</body>
+</html>
