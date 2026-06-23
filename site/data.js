@@ -253,8 +253,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network",
-        "subnet",
         "static_ip",
         "transit_gateway"
       ]
@@ -278,9 +276,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network",
-        "subnet",
-        "firewall",
         "load_balancer"
       ]
     },
@@ -381,8 +376,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "subnet",
-        "firewall",
         "identity",
         "machine_image",
         "ssh_key_pair",
@@ -410,8 +403,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "subnet",
-        "firewall",
         "identity",
         "machine_image",
         "ssh_key_pair",
@@ -481,11 +472,7 @@ window.GRAPH_DATA = {
       "deployAfter": [
         "container_environment",
         "container_task_definition",
-        "subnet",
-        "firewall",
-        "load_balancer",
-        "container_registry",
-        "identity"
+        "load_balancer"
       ]
     },
     {
@@ -526,9 +513,6 @@ window.GRAPH_DATA = {
       },
       "deployAfter": [
         "kubernetes_cluster",
-        "subnet",
-        "firewall",
-        "identity",
         "ssh_key_pair"
       ]
     },
@@ -562,8 +546,7 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "container_service",
-        "identity"
+        "container_service"
       ]
     },
     {
@@ -582,10 +565,8 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "identity",
         "container_registry",
         "container_environment",
-        "subnet",
         "secret"
       ]
     },
@@ -916,7 +897,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "identity",
         "workflow"
       ]
     },
@@ -953,7 +933,6 @@ window.GRAPH_DATA = {
       },
       "deployAfter": [
         "tls_certificate",
-        "subnet",
         "identity",
         "static_ip",
         "private_connectivity"
@@ -976,9 +955,7 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "tls_certificate",
         "object_storage",
-        "load_balancer",
         "waf"
       ]
     },
@@ -1200,10 +1177,6 @@ window.GRAPH_DATA = {
       },
       "deployAfter": [
         "relational_database",
-        "network",
-        "identity",
-        "subnet",
-        "firewall",
         "secret"
       ]
     },
@@ -1262,9 +1235,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "subnet",
-        "firewall",
-        "static_ip",
         "load_balancer"
       ]
     },
@@ -1287,7 +1257,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network",
         "subnet"
       ]
     },
@@ -1393,8 +1362,6 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network",
-        "subnet",
         "network_interface",
         "logging",
         "identity"
@@ -1439,9 +1406,7 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "load_balancer",
         "cdn",
-        "static_ip",
         "global_accelerator",
         "dns_zone"
       ]
@@ -1545,10 +1510,8 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "subnet",
         "logging",
-        "autoscaling_group",
-        "identity"
+        "autoscaling_group"
       ]
     },
     {
@@ -1599,7 +1562,6 @@ window.GRAPH_DATA = {
         "placement_group",
         "ssh_key_pair",
         "machine_image",
-        "object_storage",
         "secret_store"
       ]
     },
@@ -1886,10 +1848,7 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "object_storage",
         "identity",
-        "subnet",
-        "firewall",
         "file_storage",
         "tracing",
         "secret_store",
@@ -1915,11 +1874,6 @@ window.GRAPH_DATA = {
       },
       "deployAfter": [
         "ml_platform",
-        "identity",
-        "object_storage",
-        "container_registry",
-        "subnet",
-        "firewall",
         "kubernetes_cluster"
       ]
     },
@@ -1940,12 +1894,9 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "identity",
-        "object_storage",
         "vector_search",
         "secret",
-        "relational_database",
-        "subnet"
+        "relational_database"
       ]
     },
     {
@@ -1967,7 +1918,6 @@ window.GRAPH_DATA = {
       },
       "deployAfter": [
         "source_repository",
-        "identity",
         "object_storage",
         "subnet",
         "firewall"
@@ -2042,8 +1992,6 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "object_storage",
-        "identity",
         "data_catalog",
         "analytics_warehouse"
       ]
@@ -2064,12 +2012,8 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "subnet",
-        "identity",
         "ml_platform",
-        "firewall",
-        "static_ip",
-        "container_registry"
+        "static_ip"
       ]
     },
     {
@@ -2101,8 +2045,7 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "load_balancer",
-        "static_ip"
+        "load_balancer"
       ]
     },
     {

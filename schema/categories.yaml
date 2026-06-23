@@ -144,7 +144,7 @@ categories:
       aws: [aws_vpn_gateway, aws_vpn_connection]
       gcp: [google_compute_vpn_gateway, google_compute_vpn_tunnel]
       azure: [azurerm_virtual_network_gateway, azurerm_virtual_network_gateway_connection]
-    deployAfter: [network, subnet, static_ip, transit_gateway]
+    deployAfter: [static_ip, transit_gateway]
 
   - id: private_connectivity
     group: networking
@@ -154,7 +154,7 @@ categories:
       aws: [aws_vpc_endpoint, aws_vpc_endpoint_service]
       gcp: [google_compute_service_attachment, google_service_networking_connection]
       azure: [azurerm_private_endpoint, azurerm_private_link_service]
-    deployAfter: [network, subnet, firewall, load_balancer]
+    deployAfter: [load_balancer]
 
   # ----------------------------------------------------------------------------
   # Identity & security
@@ -205,7 +205,7 @@ categories:
       aws: [aws_instance]
       gcp: [google_compute_instance]
       azure: [azurerm_linux_virtual_machine, azurerm_windows_virtual_machine]
-    deployAfter: [subnet, firewall, identity, machine_image, ssh_key_pair, placement_group, dedicated_host, network_interface]
+    deployAfter: [identity, machine_image, ssh_key_pair, placement_group, dedicated_host, network_interface]
 
   - id: autoscaling_group
     group: compute_container
@@ -214,7 +214,7 @@ categories:
       aws: [aws_autoscaling_group, aws_launch_template]
       gcp: [google_compute_instance_group_manager, google_compute_autoscaler]
       azure: [azurerm_linux_virtual_machine_scale_set, azurerm_windows_virtual_machine_scale_set]
-    deployAfter: [subnet, firewall, identity, machine_image, ssh_key_pair, placement_group, dedicated_host, load_balancer, volume_snapshot]
+    deployAfter: [identity, machine_image, ssh_key_pair, placement_group, dedicated_host, load_balancer, volume_snapshot]
 
   - id: serverless_function
     group: compute_container
@@ -241,7 +241,7 @@ categories:
       aws: [aws_ecs_service]
       gcp: [google_cloud_run_v2_service]
       azure: [azurerm_container_app]
-    deployAfter: [container_environment, container_task_definition, subnet, firewall, load_balancer, container_registry, identity]
+    deployAfter: [container_environment, container_task_definition, load_balancer]
 
   - id: kubernetes_cluster
     group: compute_container
@@ -259,7 +259,7 @@ categories:
       aws: [aws_eks_node_group]
       gcp: [google_container_node_pool]
       azure: [azurerm_kubernetes_cluster_node_pool]
-    deployAfter: [kubernetes_cluster, subnet, firewall, identity, ssh_key_pair]
+    deployAfter: [kubernetes_cluster, ssh_key_pair]
 
   - id: container_task_definition
     group: compute_container
@@ -277,7 +277,7 @@ categories:
       aws: [aws_appautoscaling_target, aws_appautoscaling_policy]
       gcp: []   # Cloud Run autoscales implicitly
       azure: [] # Container Apps scale rules are inline on the app
-    deployAfter: [container_service, identity]
+    deployAfter: [container_service]
 
   - id: container_job
     group: compute_container
@@ -286,7 +286,7 @@ categories:
       aws: [aws_batch_job_definition]
       gcp: [google_cloud_run_v2_job]
       azure: [azurerm_container_app_job]
-    deployAfter: [identity, container_registry, container_environment, subnet, secret]
+    deployAfter: [container_registry, container_environment, secret]
 
   - id: container_instance
     group: compute_container
@@ -445,7 +445,7 @@ categories:
       aws: [aws_scheduler_schedule]
       gcp: [google_cloud_scheduler_job]
       azure: [azurerm_logic_app_trigger_recurrence]
-    deployAfter: [identity, workflow]
+    deployAfter: [workflow]
 
   - id: secret_store
     group: data_platform
@@ -463,7 +463,7 @@ categories:
       aws: [aws_api_gateway_rest_api, aws_apigatewayv2_api]
       gcp: [google_api_gateway_api, google_api_gateway_gateway]
       azure: [azurerm_api_management, azurerm_api_management_api]
-    deployAfter: [tls_certificate, subnet, identity, static_ip, private_connectivity]
+    deployAfter: [tls_certificate, identity, static_ip, private_connectivity]
 
   - id: cdn
     group: data_platform
@@ -472,7 +472,7 @@ categories:
       aws: [aws_cloudfront_distribution]
       gcp: [google_compute_backend_bucket]
       azure: [azurerm_cdn_profile, azurerm_cdn_endpoint]
-    deployAfter: [tls_certificate, object_storage, load_balancer, waf]
+    deployAfter: [object_storage, waf]
 
   - id: full_text_search
     group: data_platform
@@ -562,7 +562,7 @@ categories:
       aws: [aws_dms_replication_instance, aws_dms_replication_task, aws_dms_endpoint]
       gcp: [google_database_migration_service_connection_profile]
       azure: [azurerm_database_migration_service, azurerm_database_migration_project]
-    deployAfter: [relational_database, network, identity, subnet, firewall, secret]
+    deployAfter: [relational_database, secret]
 
   - id: vector_search
     group: data_platform
@@ -592,7 +592,7 @@ categories:
       aws: [aws_network_interface, aws_network_interface_attachment]
       gcp: []   # no standalone NIC resource; defined inline on google_compute_instance
       azure: [azurerm_network_interface, azurerm_network_interface_security_group_association]
-    deployAfter: [subnet, firewall, static_ip, load_balancer]
+    deployAfter: [load_balancer]
 
   - id: static_ip
     group: networking
@@ -601,7 +601,7 @@ categories:
       aws: [aws_eip, aws_eip_association]
       gcp: [google_compute_address, google_compute_global_address]
       azure: [azurerm_public_ip, azurerm_public_ip_prefix]
-    deployAfter: [network, subnet]
+    deployAfter: [subnet]
 
   - id: waf
     group: networking
@@ -646,7 +646,7 @@ categories:
       aws: [aws_flow_log]
       gcp: []   # enabled via log_config on google_compute_subnetwork
       azure: [azurerm_network_watcher_flow_log]
-    deployAfter: [network, subnet, network_interface, logging, identity]
+    deployAfter: [network_interface, logging, identity]
 
   - id: dns_resolver
     group: networking
@@ -664,7 +664,7 @@ categories:
       aws: [aws_shield_protection, aws_shield_protection_group]
       gcp: []   # delivered via Cloud Armor adaptive protection (see waf)
       azure: [azurerm_network_ddos_protection_plan]
-    deployAfter: [load_balancer, cdn, static_ip, global_accelerator, dns_zone]
+    deployAfter: [cdn, global_accelerator, dns_zone]
 
   - id: bastion
     group: networking
@@ -712,7 +712,7 @@ categories:
       aws: [aws_ecs_cluster, aws_ecs_capacity_provider, aws_ecs_cluster_capacity_providers]
       gcp: []   # Cloud Run has no explicit environment object
       azure: [azurerm_container_app_environment]
-    deployAfter: [subnet, logging, autoscaling_group, identity]
+    deployAfter: [logging, autoscaling_group]
 
   - id: machine_image
     group: compute_container
@@ -730,7 +730,7 @@ categories:
       aws: [aws_batch_compute_environment, aws_batch_job_queue]
       gcp: []   # GCP Batch has no native Terraform resource
       azure: [azurerm_batch_account, azurerm_batch_pool]
-    deployAfter: [subnet, firewall, identity, placement_group, ssh_key_pair, machine_image, object_storage, secret_store]
+    deployAfter: [subnet, firewall, identity, placement_group, ssh_key_pair, machine_image, secret_store]
 
   - id: edge_function
     group: compute_container
@@ -868,7 +868,7 @@ categories:
       aws: [aws_sagemaker_domain, aws_sagemaker_pipeline, aws_sagemaker_model_package_group]
       gcp: [google_vertex_ai_dataset, google_vertex_ai_metadata_store]
       azure: [azurerm_machine_learning_workspace]
-    deployAfter: [object_storage, identity, subnet, firewall, file_storage, tracing, secret_store, container_registry]
+    deployAfter: [identity, file_storage, tracing, secret_store, container_registry]
 
   - id: ml_model_endpoint
     group: ai_ml
@@ -877,7 +877,7 @@ categories:
       aws: [aws_sagemaker_endpoint, aws_sagemaker_endpoint_configuration, aws_sagemaker_model]
       gcp: [google_vertex_ai_endpoint]
       azure: [azurerm_machine_learning_inference_cluster]
-    deployAfter: [ml_platform, identity, object_storage, container_registry, subnet, firewall, kubernetes_cluster]
+    deployAfter: [ml_platform, kubernetes_cluster]
 
   - id: generative_ai_endpoint
     group: ai_ml
@@ -886,7 +886,7 @@ categories:
       aws: [aws_bedrock_custom_model, aws_bedrockagent_agent, aws_bedrockagent_knowledge_base]
       gcp: []   # Vertex/Gemini access is API/IAM-driven (deploy via ml_model_endpoint)
       azure: [azurerm_cognitive_account, azurerm_cognitive_deployment]
-    deployAfter: [identity, object_storage, vector_search, secret, relational_database, subnet]
+    deployAfter: [vector_search, secret, relational_database]
 
   # ----------------------------------------------------------------------------
   # DevOps & integration
@@ -898,7 +898,7 @@ categories:
       aws: [aws_codepipeline, aws_codebuild_project]
       gcp: [google_cloudbuild_trigger, google_clouddeploy_delivery_pipeline]
       azure: [azuredevops_build_definition]
-    deployAfter: [source_repository, identity, object_storage, subnet, firewall]
+    deployAfter: [source_repository, object_storage, subnet, firewall]
 
   - id: artifact_repository
     group: devops_integration
@@ -937,7 +937,7 @@ categories:
       aws: [aws_sagemaker_feature_group]
       gcp: [google_vertex_ai_feature_online_store, google_vertex_ai_feature_group]
       azure: []   # no first-class azurerm resource; managed feature store is SDK/AzAPI
-    deployAfter: [object_storage, identity, data_catalog, analytics_warehouse]
+    deployAfter: [data_catalog, analytics_warehouse]
 
   - id: managed_notebook
     group: ai_ml
@@ -946,7 +946,7 @@ categories:
       aws: [aws_sagemaker_notebook_instance]
       gcp: [google_workbench_instance]
       azure: [azurerm_machine_learning_compute_instance]
-    deployAfter: [subnet, identity, ml_platform, firewall, static_ip, container_registry]
+    deployAfter: [ml_platform, static_ip]
 
   - id: placement_group
     group: compute_container
@@ -964,7 +964,7 @@ categories:
       aws: [aws_globalaccelerator_accelerator, aws_globalaccelerator_listener, aws_globalaccelerator_endpoint_group]
       gcp: []   # delivered via global external load balancing; no discrete resource
       azure: []   # Front Door covers this capability; no discrete equivalent
-    deployAfter: [load_balancer, static_ip]
+    deployAfter: [load_balancer]
 
   - id: email_service
     group: data_platform
