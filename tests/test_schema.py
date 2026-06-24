@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from cloud_architect.schema import Category, Schema, load_schema
+from cloud_architect.schema import Category, Layer, Schema, load_schema
 from cloud_architect.validate import (
     ValidationError,
     assert_valid,
@@ -81,6 +81,15 @@ def test_specific_deploy_after_edges(schema: Schema) -> None:
     assert "identity" not in by_id["object_storage"].deploy_after
 
 
+def test_layers_declared_and_strictly_ordered(schema: Schema) -> None:
+    """Every category sits in a declared tier, strictly above all its dependencies."""
+    declared = schema.layer_numbers
+    for category in schema.categories:
+        assert category.layer in declared, category.id
+        for dep in category.deploy_after:
+            assert category.layer > schema.by_id[dep].layer, f"{category.id} !> {dep}"
+
+
 def test_at_least_one_provider_per_category(schema: Schema) -> None:
     """Every concept should map to a real resource on at least one provider."""
     for category in schema.categories:
@@ -93,7 +102,8 @@ def test_at_least_one_provider_per_category(schema: Schema) -> None:
 def _category(**overrides: object) -> Category:
     base = dict(
         id="thing",
-        group="networking",
+        group="network",
+        layer=0,
         description="A thing.",
         terraform_types={"aws": ["aws_thing"], "gcp": [], "azure": []},
         deploy_after=[],
@@ -102,10 +112,15 @@ def _category(**overrides: object) -> Category:
     return Category(**base)  # type: ignore[arg-type]
 
 
-def _schema(categories: list[Category], groups: list[str] | None = None) -> Schema:
+def _schema(
+    categories: list[Category],
+    groups: list[str] | None = None,
+    layers: list[Layer] | None = None,
+) -> Schema:
     return Schema(
         providers=["aws", "gcp", "azure"],
-        groups=groups or ["networking"],
+        groups=groups or ["network"],
+        layers=layers or [Layer(0, "l0"), Layer(10, "l10")],
         categories=categories,
     )
 
@@ -156,6 +171,18 @@ def test_detects_deploy_after_cycle() -> None:
     b = _category(id="b", deploy_after=["a"])
     errors = validate_schema(_schema([a, b]))
     assert any("Deploy-order cycle" in e for e in errors)
+
+
+def test_detects_undeclared_layer() -> None:
+    errors = validate_schema(_schema([_category(layer=999)]))
+    assert any("undeclared layer 999" in e for e in errors)
+
+
+def test_detects_layer_order_violation() -> None:
+    a = _category(id="a", layer=0, deploy_after=["b"])
+    b = _category(id="b", layer=10)
+    errors = validate_schema(_schema([a, b]))
+    assert any("must be a strictly higher layer" in e for e in errors)
 
 
 def test_assert_valid_raises_on_broken_schema() -> None:

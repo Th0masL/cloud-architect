@@ -26,10 +26,15 @@ def render_data(schema: Schema) -> str:
     payload = {
         "providers": schema.providers,
         "groups": schema.groups,
+        "layers": [
+            {"number": layer.number, "name": layer.name, "description": layer.description}
+            for layer in schema.layers
+        ],
         "categories": [
             {
                 "id": c.id,
                 "group": c.group,
+                "layer": c.layer,
                 "description": c.description,
                 "terraformTypes": c.terraform_types,
                 "deployAfter": c.deploy_after,

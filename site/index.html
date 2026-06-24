@@ -124,24 +124,24 @@
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const GROUP_COLORS = {
-    networking:            "#38bdf8",
-    identity_security:     "#f87171",
-    compute_container:     "#a78bfa",
-    storage:               "#fbbf24",
-    data_platform:         "#34d399",
-    management_governance: "#e879f9",
-    ai_ml:                 "#22d3ee",
-    devops_integration:    "#a3e635",
+    network:    "#38bdf8",
+    security:   "#f87171",
+    compute:    "#a78bfa",
+    storage:    "#fbbf24",
+    data:       "#34d399",
+    governance: "#e879f9",
+    ml:         "#22d3ee",
+    devops:     "#a3e635",
   };
   const GROUP_LABEL = {
-    networking: "networking",
-    identity_security: "identity & security",
-    compute_container: "compute & containers",
+    network: "network",
+    security: "security",
+    compute: "compute",
     storage: "storage",
-    data_platform: "data & platform",
-    management_governance: "management & governance",
-    ai_ml: "AI / ML",
-    devops_integration: "devops & integration",
+    data: "data",
+    governance: "governance",
+    ml: "ml",
+    devops: "devops",
   };
   const NODE_W = 212, NODE_H = 34, COL_GAP = 300, ROW_GAP = 50, MARGIN = 44;
 
@@ -154,21 +154,12 @@
     if (dependents.has(dep)) dependents.get(dep).push(c.id);
   }
 
-  // ---- compute layered depth (longest path from a no-dependency node) -------
-  const depth = new Map();
-  function depthOf(id, stack) {
-    if (depth.has(id)) return depth.get(id);
-    stack = stack || new Set();
-    if (stack.has(id)) return 0;            // cycle guard (schema is acyclic)
-    stack.add(id);
-    const deps = byId.get(id).deployAfter;
-    const d = deps.length ? 1 + Math.max(...deps.map(x => depthOf(x, stack))) : 0;
-    stack.delete(id);
-    depth.set(id, d);
-    return d;
-  }
-  cats.forEach(c => depthOf(c.id));
-  const maxDepth = Math.max(...depth.values());
+  // ---- columns are the pinned deploy-order layers (00, 10, 20, ...) ----------
+  const layerNums = [...new Set(cats.map(c => c.layer))].sort((a, b) => a - b);
+  const colOf = new Map(layerNums.map((n, i) => [n, i]));          // layer number -> column
+  const layerName = new Map((DATA.layers || []).map(l => [l.number, l.name]));
+  const depth = new Map(cats.map(c => [c.id, colOf.get(c.layer)]));  // depth == column index
+  const maxDepth = layerNums.length - 1;
 
   // ---- order nodes within each column, then assign positions ----------------
   const layers = [];
@@ -255,6 +246,17 @@
     nodeEls.set(c.id, g);
   }
 
+  // ---- tier (layer) column headers ------------------------------------------
+  const headerLayer = el("g");
+  svg.appendChild(headerLayer);
+  for (let i = 0; i <= maxDepth; i++) {
+    const num = layerNums[i];
+    const t = el("text", { x: MARGIN + i * COL_GAP + NODE_W / 2, y: 22, "text-anchor": "middle",
+      "font-size": 13, "font-weight": 600, fill: "var(--muted)" });
+    t.textContent = String(num).padStart(2, "0") + "  " + (layerName.get(num) || "");
+    headerLayer.appendChild(t);
+  }
+
   document.getElementById("graph").addEventListener("click", clearSelection);
 
   // ---- selection / highlighting --------------------------------------------
@@ -321,10 +323,13 @@
         : `<span class="tf-empty">— no direct equivalent</span>`;
       return `<div class="tf-prov">${p}</div><div class="tf-list">${body}</div>`;
     }).join("");
+    const lnum = String(c.layer).padStart(2, "0");
+    const lname = layerName.get(c.layer) || "";
     panel.innerHTML = `
       <h2>${esc(c.id)}</h2>
       <span class="grouptag" style="background:${color}28;color:${color}">${GROUP_LABEL[c.group] || c.group}</span>
       <p class="desc">${esc(c.description)}</p>
+      <p class="stat">tier <b>${lnum}</b> ${esc(lname)} · suggested folder <code>&lt;cloud&gt;/${lnum}-${esc(c.group)}-&lt;name&gt;</code></p>
       <h3>Terraform types</h3>${tf}
       <h3>Deploys after (${c.deployAfter.length})</h3>${relRow(c.deployAfter)}
       <h3>Deploys before (${dependents.get(id).length})</h3>${relRow(dependents.get(id))}

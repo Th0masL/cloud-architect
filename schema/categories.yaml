@@ -7,7 +7,10 @@
 #
 # Entry shape:
 #   - id:            unique, snake_case category name (the generic concept).
-#     group:         one of the `groups` listed below (organizational only).
+#     group:         the resource's nice-named category — one of the `groups` below.
+#     layer:         deploy tier number (must match a `layers` entry). The suggested
+#                    monorepo folder is <provider>/<layer>-<group>-<your-name>/, and
+#                    the <layer> prefix is the apply-order contract (low to high).
 #     description:   one-line human summary.
 #     terraformTypes: provider-keyed map. Every provider in `providers` must be
 #                    present. Use an empty list [] when a provider has no clean,
@@ -16,6 +19,7 @@
 #                    concept's own config (or its standard companion resource)
 #                    references them at deploy time. Config-reference test; keep
 #                    sparse, acyclic, closest-node-only (see README.md).
+#                    Invariant: layer(self) > layer(dep) for every deployAfter dep.
 #
 # See README.md for the modeling philosophy and how to extend this file safely.
 
@@ -24,22 +28,45 @@ providers:
   - gcp
   - azure
 
-groups:
-  - networking
-  - identity_security
-  - compute_container
-  - storage
-  - data_platform
-  - management_governance
-  - ai_ml
-  - devops_integration
+groups: [network, security, compute, storage, data, governance, ml, devops]
+
+# Deploy-order tiers. The folder prefix <NN> is the deployment contract: apply low to high.
+layers:
+  - number: 0
+    name: foundation
+    description: Roots — depend on nothing.
+  - number: 10
+    name: core
+    description: Built directly on the foundation.
+  - number: 20
+    name: platform
+    description: Managed services and clusters.
+  - number: 30
+    name: connectivity
+    description: Gateways, load balancers, platform extensions.
+  - number: 40
+    name: scaling
+    description: Fleets, endpoints, attachments.
+  - number: 50
+    name: runtime
+    description: Where workloads run.
+  - number: 60
+    name: workload
+    description: Running services and jobs.
+  - number: 70
+    name: delivery
+    description: Edge delivery.
+  - number: 80
+    name: protection
+    description: Edge protection.
 
 categories:
   # ----------------------------------------------------------------------------
   # Networking
   # ----------------------------------------------------------------------------
   - id: network
-    group: networking
+    group: network
+    layer: 0
     description: Isolated virtual network (VPC / VNet).
     terraformTypes:
       aws: [aws_vpc]
@@ -48,7 +75,8 @@ categories:
     deployAfter: []
 
   - id: subnet
-    group: networking
+    group: network
+    layer: 10
     description: IP range carved out of a network.
     terraformTypes:
       aws: [aws_subnet]
@@ -57,7 +85,8 @@ categories:
     deployAfter: [network]
 
   - id: route_table
-    group: networking
+    group: network
+    layer: 10
     description: Routing rules that steer traffic within/out of a network.
     terraformTypes:
       aws: [aws_route_table, aws_route]
@@ -66,7 +95,8 @@ categories:
     deployAfter: [network]
 
   - id: internet_gateway
-    group: networking
+    group: network
+    layer: 10
     description: Egress/ingress to the public internet for a network.
     terraformTypes:
       aws: [aws_internet_gateway]
@@ -75,7 +105,8 @@ categories:
     deployAfter: [network]
 
   - id: nat_gateway
-    group: networking
+    group: network
+    layer: 30
     description: Outbound-only internet access for private subnets.
     terraformTypes:
       aws: [aws_nat_gateway]
@@ -84,7 +115,8 @@ categories:
     deployAfter: [subnet, static_ip]
 
   - id: firewall
-    group: networking
+    group: network
+    layer: 10
     description: Stateful traffic filter / security group container.
     terraformTypes:
       aws: [aws_security_group]
@@ -93,7 +125,8 @@ categories:
     deployAfter: [network]
 
   - id: firewall_rule
-    group: networking
+    group: network
+    layer: 20
     description: Individual ingress/egress rule (incl. AWS security group rules).
     terraformTypes:
       aws: [aws_security_group_rule, aws_vpc_security_group_ingress_rule, aws_vpc_security_group_egress_rule]
@@ -102,7 +135,8 @@ categories:
     deployAfter: [firewall]
 
   - id: load_balancer
-    group: networking
+    group: network
+    layer: 30
     description: Distributes traffic across backends (L4/L7).
     terraformTypes:
       aws: [aws_lb, aws_lb_listener, aws_lb_target_group]
@@ -111,7 +145,8 @@ categories:
     deployAfter: [subnet, firewall, tls_certificate, static_ip, identity]
 
   - id: dns_zone
-    group: networking
+    group: network
+    layer: 10
     description: Authoritative DNS namespace.
     terraformTypes:
       aws: [aws_route53_zone]
@@ -120,7 +155,8 @@ categories:
     deployAfter: [network]
 
   - id: dns_record
-    group: networking
+    group: network
+    layer: 20
     description: A record set within a DNS zone.
     terraformTypes:
       aws: [aws_route53_record]
@@ -129,7 +165,8 @@ categories:
     deployAfter: [dns_zone]
 
   - id: tls_certificate
-    group: networking
+    group: network
+    layer: 10
     description: TLS/SSL certificate for terminating HTTPS.
     terraformTypes:
       aws: [aws_acm_certificate]
@@ -138,7 +175,8 @@ categories:
     deployAfter: [secret_store]
 
   - id: vpn_gateway
-    group: networking
+    group: network
+    layer: 30
     description: Site-to-site / client VPN termination.
     terraformTypes:
       aws: [aws_vpn_gateway, aws_vpn_connection]
@@ -147,7 +185,8 @@ categories:
     deployAfter: [static_ip, transit_gateway]
 
   - id: private_connectivity
-    group: networking
+    group: network
+    layer: 40
     description: Private access to services without traversing the internet
       (PrivateLink / Private Service Connect / Private Endpoint).
     terraformTypes:
@@ -160,7 +199,8 @@ categories:
   # Identity & security
   # ----------------------------------------------------------------------------
   - id: identity
-    group: identity_security
+    group: security
+    layer: 0
     description: Workload/principal identity (IAM role / service account / managed identity).
     terraformTypes:
       aws: [aws_iam_role, aws_iam_instance_profile]
@@ -169,7 +209,8 @@ categories:
     deployAfter: []
 
   - id: access_policy
-    group: identity_security
+    group: security
+    layer: 10
     description: Permission grant / authorization rule attached to an identity.
     terraformTypes:
       aws: [aws_iam_policy, aws_iam_role_policy]
@@ -178,7 +219,8 @@ categories:
     deployAfter: [identity]
 
   - id: encryption_key
-    group: identity_security
+    group: security
+    layer: 0
     description: Managed encryption key (KMS / Key Vault key).
     terraformTypes:
       aws: [aws_kms_key, aws_kms_alias]
@@ -187,7 +229,8 @@ categories:
     deployAfter: []
 
   - id: secret
-    group: identity_security
+    group: security
+    layer: 10
     description: An individual stored secret value.
     terraformTypes:
       aws: [aws_secretsmanager_secret, aws_secretsmanager_secret_version]
@@ -199,7 +242,8 @@ categories:
   # Compute & containers
   # ----------------------------------------------------------------------------
   - id: compute_instance
-    group: compute_container
+    group: compute
+    layer: 50
     description: Virtual machine.
     terraformTypes:
       aws: [aws_instance]
@@ -208,7 +252,8 @@ categories:
     deployAfter: [identity, machine_image, ssh_key_pair, placement_group, dedicated_host, network_interface]
 
   - id: autoscaling_group
-    group: compute_container
+    group: compute
+    layer: 40
     description: Self-healing, auto-scaling fleet of VMs.
     terraformTypes:
       aws: [aws_autoscaling_group, aws_launch_template]
@@ -217,7 +262,8 @@ categories:
     deployAfter: [identity, machine_image, ssh_key_pair, placement_group, dedicated_host, load_balancer, volume_snapshot]
 
   - id: serverless_function
-    group: compute_container
+    group: compute
+    layer: 20
     description: Event-driven function-as-a-service.
     terraformTypes:
       aws: [aws_lambda_function]
@@ -226,7 +272,8 @@ categories:
     deployAfter: [identity, object_storage, subnet, container_registry, firewall]
 
   - id: container_registry
-    group: compute_container
+    group: compute
+    layer: 0
     description: Stores and serves container images.
     terraformTypes:
       aws: [aws_ecr_repository]
@@ -235,7 +282,8 @@ categories:
     deployAfter: []
 
   - id: container_service
-    group: compute_container
+    group: compute
+    layer: 60
     description: Long-running container service (ECS service / Cloud Run / Container Apps).
     terraformTypes:
       aws: [aws_ecs_service]
@@ -244,7 +292,8 @@ categories:
     deployAfter: [container_environment, container_task_definition, load_balancer]
 
   - id: kubernetes_cluster
-    group: compute_container
+    group: compute
+    layer: 20
     description: Managed Kubernetes control plane (EKS / GKE / AKS).
     terraformTypes:
       aws: [aws_eks_cluster]
@@ -253,7 +302,8 @@ categories:
     deployAfter: [subnet, firewall, identity]
 
   - id: kubernetes_node_pool
-    group: compute_container
+    group: compute
+    layer: 30
     description: Group of worker nodes attached to a Kubernetes cluster.
     terraformTypes:
       aws: [aws_eks_node_group]
@@ -262,7 +312,8 @@ categories:
     deployAfter: [kubernetes_cluster, ssh_key_pair]
 
   - id: container_task_definition
-    group: compute_container
+    group: compute
+    layer: 30
     description: Declarative container task spec (ECS task definition).
     terraformTypes:
       aws: [aws_ecs_task_definition]
@@ -271,7 +322,8 @@ categories:
     deployAfter: [identity, container_registry, file_storage]
 
   - id: container_service_autoscaling
-    group: compute_container
+    group: compute
+    layer: 70
     description: Scaling policy/target for a container service (ECS Application Auto Scaling).
     terraformTypes:
       aws: [aws_appautoscaling_target, aws_appautoscaling_policy]
@@ -280,7 +332,8 @@ categories:
     deployAfter: [container_service]
 
   - id: container_job
-    group: compute_container
+    group: compute
+    layer: 60
     description: Run-to-completion batch/container job (AWS Batch / Cloud Run Jobs / Container Apps Jobs).
     terraformTypes:
       aws: [aws_batch_job_definition]
@@ -289,7 +342,8 @@ categories:
     deployAfter: [container_registry, container_environment, secret]
 
   - id: container_instance
-    group: compute_container
+    group: compute
+    layer: 20
     description: Single standalone container without an orchestrator (Azure Container Instances).
     terraformTypes:
       aws: []   # no single-container resource; use ECS/Fargate (container_service)
@@ -302,6 +356,7 @@ categories:
   # ----------------------------------------------------------------------------
   - id: object_storage
     group: storage
+    layer: 0
     description: Bucket-based object/blob storage.
     terraformTypes:
       aws: [aws_s3_bucket]
@@ -311,6 +366,7 @@ categories:
 
   - id: block_storage
     group: storage
+    layer: 10
     description: Attachable raw block volume.
     terraformTypes:
       aws: [aws_ebs_volume]
@@ -320,6 +376,7 @@ categories:
 
   - id: file_storage
     group: storage
+    layer: 20
     description: Managed network file share (NFS/SMB).
     terraformTypes:
       aws: [aws_efs_file_system, aws_efs_mount_target]
@@ -329,6 +386,7 @@ categories:
 
   - id: archive_storage
     group: storage
+    layer: 0
     description: Cold/archival storage for rarely accessed data.
     terraformTypes:
       aws: [aws_glacier_vault]
@@ -338,6 +396,7 @@ categories:
 
   - id: backup
     group: storage
+    layer: 10
     description: Scheduled backups / snapshot policies and their vaults.
     terraformTypes:
       aws: [aws_backup_vault, aws_backup_plan]
@@ -349,7 +408,8 @@ categories:
   # Data & platform services
   # ----------------------------------------------------------------------------
   - id: relational_database
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed relational (SQL) database — see nosql_database for non-relational stores.
     terraformTypes:
       aws: [aws_db_instance, aws_rds_cluster]
@@ -358,7 +418,8 @@ categories:
     deployAfter: [subnet, firewall, identity, dns_zone]
 
   - id: cache
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed in-memory cache (Redis / Memcached).
     terraformTypes:
       aws: [aws_elasticache_cluster, aws_elasticache_replication_group]
@@ -367,7 +428,8 @@ categories:
     deployAfter: [subnet, firewall]
 
   - id: message_bus
-    group: data_platform
+    group: data
+    layer: 0
     description: Publish/subscribe broadcast topic (see event_bus for rule-based routing).
     terraformTypes:
       aws: [aws_sns_topic]
@@ -376,7 +438,8 @@ categories:
     deployAfter: []
 
   - id: queue
-    group: data_platform
+    group: data
+    layer: 10
     description: Point-to-point message queue.
     terraformTypes:
       aws: [aws_sqs_queue]
@@ -385,7 +448,8 @@ categories:
     deployAfter: [object_storage]
 
   - id: stream
-    group: data_platform
+    group: data
+    layer: 0
     description: Ordered, replayable event/data stream.
     terraformTypes:
       aws: [aws_kinesis_stream]
@@ -394,7 +458,8 @@ categories:
     deployAfter: []
 
   - id: analytics_warehouse
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed analytics / data warehouse.
     terraformTypes:
       aws: [aws_redshift_cluster]
@@ -403,7 +468,8 @@ categories:
     deployAfter: [subnet, firewall, identity, object_storage]
 
   - id: logging
-    group: data_platform
+    group: data
+    layer: 0
     description: Log collection, storage, and routing.
     terraformTypes:
       aws: [aws_cloudwatch_log_group]
@@ -412,7 +478,8 @@ categories:
     deployAfter: []
 
   - id: monitoring
-    group: data_platform
+    group: data
+    layer: 10
     description: Metrics, alarms, and dashboards.
     terraformTypes:
       aws: [aws_cloudwatch_metric_alarm, aws_cloudwatch_dashboard]
@@ -421,7 +488,8 @@ categories:
     deployAfter: [message_bus]
 
   - id: tracing
-    group: data_platform
+    group: data
+    layer: 10
     description: Distributed request tracing.
     terraformTypes:
       aws: [aws_xray_sampling_rule, aws_xray_group]
@@ -430,7 +498,8 @@ categories:
     deployAfter: [logging]
 
   - id: application_config
-    group: data_platform
+    group: data
+    layer: 10
     description: Non-secret application configuration / parameter store.
     terraformTypes:
       aws: [aws_ssm_parameter, aws_appconfig_application]
@@ -439,7 +508,8 @@ categories:
     deployAfter: [identity]
 
   - id: scheduler
-    group: data_platform
+    group: data
+    layer: 20
     description: Cron/recurring task trigger.
     terraformTypes:
       aws: [aws_scheduler_schedule]
@@ -448,7 +518,8 @@ categories:
     deployAfter: [workflow]
 
   - id: secret_store
-    group: data_platform
+    group: data
+    layer: 0
     description: Managed secret store / vault that holds secrets (see `secret`).
     terraformTypes:
       aws: []   # Secrets Manager is a managed service; secrets are the units (see `secret`)
@@ -457,7 +528,8 @@ categories:
     deployAfter: []
 
   - id: api_gateway
-    group: data_platform
+    group: data
+    layer: 50
     description: Managed API front door (routing, auth, throttling).
     terraformTypes:
       aws: [aws_api_gateway_rest_api, aws_apigatewayv2_api]
@@ -466,7 +538,8 @@ categories:
     deployAfter: [tls_certificate, identity, static_ip, private_connectivity]
 
   - id: cdn
-    group: data_platform
+    group: data
+    layer: 70
     description: Content delivery network / edge cache.
     terraformTypes:
       aws: [aws_cloudfront_distribution]
@@ -475,7 +548,8 @@ categories:
     deployAfter: [object_storage, waf]
 
   - id: full_text_search
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed lexical full-text search / indexing (see vector_search for embeddings).
     terraformTypes:
       aws: [aws_opensearch_domain]
@@ -484,7 +558,8 @@ categories:
     deployAfter: [subnet, firewall, identity]
 
   - id: nosql_database
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed non-relational document / key-value database.
     terraformTypes:
       aws: [aws_dynamodb_table, aws_dynamodb_global_table]
@@ -493,7 +568,8 @@ categories:
     deployAfter: [subnet, identity]
 
   - id: wide_column_database
-    group: data_platform
+    group: data
+    layer: 20
     description: Petabyte-scale wide-column / columnar NoSQL store (Bigtable / Cassandra model).
     terraformTypes:
       aws: [aws_keyspaces_keyspace, aws_keyspaces_table]
@@ -502,7 +578,8 @@ categories:
     deployAfter: [subnet]
 
   - id: time_series_database
-    group: data_platform
+    group: data
+    layer: 10
     description: Purpose-built time-series store for high-cardinality timestamped data.
     terraformTypes:
       aws: [aws_timestreamwrite_database, aws_timestreamwrite_table]
@@ -511,7 +588,8 @@ categories:
     deployAfter: [identity]
 
   - id: managed_kafka
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed Apache Kafka broker cluster (Kafka wire-protocol streaming).
     terraformTypes:
       aws: [aws_msk_cluster, aws_msk_serverless_cluster]
@@ -520,7 +598,8 @@ categories:
     deployAfter: [subnet, firewall, object_storage, identity]
 
   - id: event_bus
-    group: data_platform
+    group: data
+    layer: 10
     description: Rule-based event router / event bus with content filtering (vs broadcast message_bus).
     terraformTypes:
       aws: [aws_cloudwatch_event_bus, aws_cloudwatch_event_rule, aws_cloudwatch_event_target]
@@ -529,7 +608,8 @@ categories:
     deployAfter: [identity]
 
   - id: notification
-    group: data_platform
+    group: data
+    layer: 10
     description: Multi-channel end-user notification delivery (push / SMS / email).
     terraformTypes:
       aws: [aws_pinpoint_app, aws_sns_platform_application]
@@ -538,7 +618,8 @@ categories:
     deployAfter: [identity]
 
   - id: data_pipeline
-    group: data_platform
+    group: data
+    layer: 20
     description: Managed ETL/ELT batch & streaming data transformation jobs.
     terraformTypes:
       aws: [aws_glue_job, aws_glue_trigger, aws_glue_crawler]
@@ -547,7 +628,8 @@ categories:
     deployAfter: [object_storage, identity, subnet]
 
   - id: data_catalog
-    group: data_platform
+    group: data
+    layer: 10
     description: Central metadata catalog, schema registry, and data-lake governance.
     terraformTypes:
       aws: [aws_glue_catalog_database, aws_glue_catalog_table, aws_lakeformation_resource]
@@ -556,7 +638,8 @@ categories:
     deployAfter: [object_storage, identity]
 
   - id: database_migration
-    group: data_platform
+    group: data
+    layer: 30
     description: Managed database migration & continuous replication (CDC) service.
     terraformTypes:
       aws: [aws_dms_replication_instance, aws_dms_replication_task, aws_dms_endpoint]
@@ -565,7 +648,8 @@ categories:
     deployAfter: [relational_database, secret]
 
   - id: vector_search
-    group: data_platform
+    group: data
+    layer: 10
     description: Managed vector / embedding index for similarity search (RAG, semantic search).
     terraformTypes:
       aws: [aws_opensearchserverless_collection]
@@ -577,7 +661,8 @@ categories:
   # Networking (additions)
   # ----------------------------------------------------------------------------
   - id: vpc_peering
-    group: networking
+    group: network
+    layer: 10
     description: Direct private network-to-network peering (non-transitive).
     terraformTypes:
       aws: [aws_vpc_peering_connection, aws_vpc_peering_connection_accepter]
@@ -586,7 +671,8 @@ categories:
     deployAfter: [network]
 
   - id: network_interface
-    group: networking
+    group: network
+    layer: 40
     description: Attachable elastic NIC / vNIC carrying private IPs in a subnet.
     terraformTypes:
       aws: [aws_network_interface, aws_network_interface_attachment]
@@ -595,7 +681,8 @@ categories:
     deployAfter: [load_balancer]
 
   - id: static_ip
-    group: networking
+    group: network
+    layer: 20
     description: Reserved static public/internal IP address.
     terraformTypes:
       aws: [aws_eip, aws_eip_association]
@@ -604,7 +691,8 @@ categories:
     deployAfter: [subnet]
 
   - id: waf
-    group: networking
+    group: network
+    layer: 60
     description: Layer-7 web application firewall / managed rule set (vs L3-4 firewall).
     terraformTypes:
       aws: [aws_wafv2_web_acl, aws_wafv2_web_acl_association, aws_wafv2_rule_group]
@@ -613,7 +701,8 @@ categories:
     deployAfter: [load_balancer, api_gateway, paas_application]
 
   - id: network_acl
-    group: networking
+    group: network
+    layer: 20
     description: Stateless subnet-level allow/deny ACL (distinct from stateful firewall).
     terraformTypes:
       aws: [aws_network_acl, aws_network_acl_rule, aws_network_acl_association]
@@ -622,7 +711,8 @@ categories:
     deployAfter: [subnet]
 
   - id: transit_gateway
-    group: networking
+    group: network
+    layer: 20
     description: Hub-and-spoke transit fabric interconnecting many networks and on-prem.
     terraformTypes:
       aws: [aws_ec2_transit_gateway, aws_ec2_transit_gateway_vpc_attachment, aws_ec2_transit_gateway_route_table]
@@ -631,7 +721,8 @@ categories:
     deployAfter: [subnet]
 
   - id: hybrid_interconnect
-    group: networking
+    group: network
+    layer: 10
     description: Dedicated private leased-line connectivity to on-prem (DirectConnect / Interconnect / ExpressRoute).
     terraformTypes:
       aws: [aws_dx_connection, aws_dx_gateway, aws_dx_virtual_interface]
@@ -640,7 +731,8 @@ categories:
     deployAfter: [network]
 
   - id: flow_log
-    group: networking
+    group: network
+    layer: 50
     description: Capture of IP traffic metadata for a network/subnet/NIC.
     terraformTypes:
       aws: [aws_flow_log]
@@ -649,7 +741,8 @@ categories:
     deployAfter: [network_interface, logging, identity]
 
   - id: dns_resolver
-    group: networking
+    group: network
+    layer: 20
     description: Inbound/outbound DNS resolver endpoints and forwarding rules for hybrid DNS.
     terraformTypes:
       aws: [aws_route53_resolver_endpoint, aws_route53_resolver_rule, aws_route53_resolver_rule_association]
@@ -658,7 +751,8 @@ categories:
     deployAfter: [subnet, firewall]
 
   - id: ddos_protection
-    group: networking
+    group: network
+    layer: 80
     description: Managed volumetric DDoS mitigation.
     terraformTypes:
       aws: [aws_shield_protection, aws_shield_protection_group]
@@ -667,7 +761,8 @@ categories:
     deployAfter: [cdn, global_accelerator, dns_zone]
 
   - id: bastion
-    group: networking
+    group: network
+    layer: 30
     description: Managed jump-host for secure admin access to private networks.
     terraformTypes:
       aws: []   # achieved via SSM Session Manager, no managed bastion resource
@@ -676,7 +771,8 @@ categories:
     deployAfter: [subnet, static_ip]
 
   - id: global_traffic_manager
-    group: networking
+    group: network
+    layer: 20
     description: DNS-based global traffic routing / failover across regions.
     terraformTypes:
       aws: [aws_route53_traffic_policy, aws_route53_traffic_policy_instance]
@@ -685,7 +781,8 @@ categories:
     deployAfter: [dns_zone]
 
   - id: service_discovery
-    group: networking
+    group: network
+    layer: 10
     description: Service registry mapping logical service names to instances/IPs.
     terraformTypes:
       aws: [aws_service_discovery_service, aws_service_discovery_private_dns_namespace, aws_service_discovery_http_namespace]
@@ -697,7 +794,8 @@ categories:
   # Compute & containers (additions)
   # ----------------------------------------------------------------------------
   - id: paas_application
-    group: compute_container
+    group: compute
+    layer: 20
     description: Fully-managed source-to-URL PaaS web/app platform.
     terraformTypes:
       aws: [aws_elastic_beanstalk_application, aws_elastic_beanstalk_environment, aws_apprunner_service]
@@ -706,7 +804,8 @@ categories:
     deployAfter: [identity, subnet, container_registry]
 
   - id: container_environment
-    group: compute_container
+    group: compute
+    layer: 50
     description: Cluster/environment boundary that container services run inside.
     terraformTypes:
       aws: [aws_ecs_cluster, aws_ecs_capacity_provider, aws_ecs_cluster_capacity_providers]
@@ -715,7 +814,8 @@ categories:
     deployAfter: [logging, autoscaling_group]
 
   - id: machine_image
-    group: compute_container
+    group: compute
+    layer: 30
     description: Golden/custom VM boot image used as a template for instances.
     terraformTypes:
       aws: [aws_ami, aws_ami_copy, aws_ami_from_instance]
@@ -724,7 +824,8 @@ categories:
     deployAfter: [volume_snapshot, object_storage]
 
   - id: batch_compute_environment
-    group: compute_container
+    group: compute
+    layer: 40
     description: Managed batch/HPC compute environment that autoscales jobs to completion.
     terraformTypes:
       aws: [aws_batch_compute_environment, aws_batch_job_queue]
@@ -733,7 +834,8 @@ categories:
     deployAfter: [subnet, firewall, identity, placement_group, ssh_key_pair, machine_image, secret_store]
 
   - id: edge_function
-    group: compute_container
+    group: compute
+    layer: 0
     description: Lightweight compute running at CDN/edge POPs.
     terraformTypes:
       aws: [aws_cloudfront_function]
@@ -742,7 +844,8 @@ categories:
     deployAfter: []
 
   - id: service_mesh
-    group: compute_container
+    group: compute
+    layer: 20
     description: Managed service mesh control plane for service-to-service traffic.
     terraformTypes:
       aws: [aws_appmesh_mesh, aws_appmesh_virtual_service, aws_appmesh_virtual_node, aws_appmesh_virtual_router]
@@ -751,7 +854,8 @@ categories:
     deployAfter: [service_discovery, tls_certificate, private_certificate_authority]
 
   - id: workflow
-    group: compute_container
+    group: compute
+    layer: 10
     description: Managed multi-step workflow / state-machine orchestration.
     terraformTypes:
       aws: [aws_sfn_state_machine]
@@ -764,6 +868,7 @@ categories:
   # ----------------------------------------------------------------------------
   - id: volume_snapshot
     group: storage
+    layer: 20
     description: Point-in-time snapshot of a block volume (vs managed backup vaults).
     terraformTypes:
       aws: [aws_ebs_snapshot, aws_ebs_snapshot_copy]
@@ -775,7 +880,8 @@ categories:
   # Identity & security (additions)
   # ----------------------------------------------------------------------------
   - id: identity_provider
-    group: identity_security
+    group: security
+    layer: 0
     description: Federated identity trust (SAML/OIDC providers, workforce/workload identity).
     terraformTypes:
       aws: [aws_iam_saml_provider, aws_iam_openid_connect_provider]
@@ -784,7 +890,8 @@ categories:
     deployAfter: []
 
   - id: private_certificate_authority
-    group: identity_security
+    group: security
+    layer: 10
     description: Private PKI / certificate authority issuing internal X.509 certs.
     terraformTypes:
       aws: [aws_acmpca_certificate_authority, aws_acmpca_certificate]
@@ -793,7 +900,8 @@ categories:
     deployAfter: [object_storage]
 
   - id: managed_hsm
-    group: identity_security
+    group: security
+    layer: 20
     description: Dedicated single-tenant hardware security module backing key storage.
     terraformTypes:
       aws: [aws_cloudhsm_v2_cluster, aws_cloudhsm_v2_hsm]
@@ -802,7 +910,8 @@ categories:
     deployAfter: [subnet, tls_certificate]
 
   - id: ssh_key_pair
-    group: identity_security
+    group: security
+    layer: 0
     description: Named SSH public-key resource for VM/instance access.
     terraformTypes:
       aws: [aws_key_pair]
@@ -814,7 +923,8 @@ categories:
   # Management & governance
   # ----------------------------------------------------------------------------
   - id: resource_container
-    group: management_governance
+    group: governance
+    layer: 0
     description: Account/project/subscription + org-hierarchy container that scopes resources, IAM, and billing.
     terraformTypes:
       aws: [aws_organizations_organization, aws_organizations_organizational_unit, aws_organizations_account]
@@ -823,7 +933,8 @@ categories:
     deployAfter: []
 
   - id: audit_log
-    group: management_governance
+    group: governance
+    layer: 10
     description: Account/org-level audit & activity trail (vs application logging).
     terraformTypes:
       aws: [aws_cloudtrail]
@@ -832,7 +943,8 @@ categories:
     deployAfter: [resource_container, logging, object_storage, identity]
 
   - id: compliance_rule
-    group: management_governance
+    group: governance
+    layer: 10
     description: Policy-as-code guardrails & config-compliance (Config / Org Policy / Azure Policy / SCP).
     terraformTypes:
       aws: [aws_config_config_rule, aws_config_configuration_recorder, aws_organizations_policy]
@@ -841,7 +953,8 @@ categories:
     deployAfter: [resource_container, identity]
 
   - id: threat_detection
-    group: management_governance
+    group: governance
+    layer: 10
     description: Managed threat detection & cloud security posture management.
     terraformTypes:
       aws: [aws_guardduty_detector, aws_securityhub_account, aws_inspector2_enabler]
@@ -850,7 +963,8 @@ categories:
     deployAfter: [resource_container]
 
   - id: budget
-    group: management_governance
+    group: governance
+    layer: 10
     description: Cost/budget controls with spend thresholds and alerting.
     terraformTypes:
       aws: [aws_budgets_budget]
@@ -862,7 +976,8 @@ categories:
   # AI / ML
   # ----------------------------------------------------------------------------
   - id: ml_platform
-    group: ai_ml
+    group: ml
+    layer: 30
     description: Managed ML workspace / training platform (jobs, pipelines, model registry).
     terraformTypes:
       aws: [aws_sagemaker_domain, aws_sagemaker_pipeline, aws_sagemaker_model_package_group]
@@ -871,7 +986,8 @@ categories:
     deployAfter: [identity, file_storage, tracing, secret_store, container_registry]
 
   - id: ml_model_endpoint
-    group: ai_ml
+    group: ml
+    layer: 40
     description: Managed online/real-time inference endpoint serving a trained model.
     terraformTypes:
       aws: [aws_sagemaker_endpoint, aws_sagemaker_endpoint_configuration, aws_sagemaker_model]
@@ -880,7 +996,8 @@ categories:
     deployAfter: [ml_platform, kubernetes_cluster]
 
   - id: generative_ai_endpoint
-    group: ai_ml
+    group: ml
+    layer: 30
     description: Managed foundation-model / generative-AI service (LLM, embeddings, RAG).
     terraformTypes:
       aws: [aws_bedrock_custom_model, aws_bedrockagent_agent, aws_bedrockagent_knowledge_base]
@@ -892,7 +1009,8 @@ categories:
   # DevOps & integration
   # ----------------------------------------------------------------------------
   - id: cicd_pipeline
-    group: devops_integration
+    group: devops
+    layer: 20
     description: Managed CI/CD build & deploy pipeline.
     terraformTypes:
       aws: [aws_codepipeline, aws_codebuild_project]
@@ -901,7 +1019,8 @@ categories:
     deployAfter: [source_repository, object_storage, subnet, firewall]
 
   - id: artifact_repository
-    group: devops_integration
+    group: devops
+    layer: 0
     description: Managed package/artifact registry (npm, Maven, PyPI — non-container).
     terraformTypes:
       aws: [aws_codeartifact_domain, aws_codeartifact_repository]
@@ -910,7 +1029,8 @@ categories:
     deployAfter: []
 
   - id: source_repository
-    group: devops_integration
+    group: devops
+    layer: 10
     description: Managed Git source-code repository.
     terraformTypes:
       aws: [aws_codecommit_repository]
@@ -922,7 +1042,8 @@ categories:
   # Round-2 additions
   # ----------------------------------------------------------------------------
   - id: directory_service
-    group: identity_security
+    group: security
+    layer: 20
     description: Managed directory (Microsoft AD / LDAP) for domain-joined resources.
     terraformTypes:
       aws: [aws_directory_service_directory]
@@ -931,7 +1052,8 @@ categories:
     deployAfter: [subnet]
 
   - id: feature_store
-    group: ai_ml
+    group: ml
+    layer: 30
     description: Centralized online/offline ML feature store for training and serving.
     terraformTypes:
       aws: [aws_sagemaker_feature_group]
@@ -940,7 +1062,8 @@ categories:
     deployAfter: [data_catalog, analytics_warehouse]
 
   - id: managed_notebook
-    group: ai_ml
+    group: ml
+    layer: 40
     description: Managed interactive notebook / data-science workbench environment.
     terraformTypes:
       aws: [aws_sagemaker_notebook_instance]
@@ -949,7 +1072,8 @@ categories:
     deployAfter: [ml_platform, static_ip]
 
   - id: placement_group
-    group: compute_container
+    group: compute
+    layer: 0
     description: Placement strategy controlling physical proximity/spread of instances.
     terraformTypes:
       aws: [aws_placement_group]
@@ -958,7 +1082,8 @@ categories:
     deployAfter: []
 
   - id: global_accelerator
-    group: networking
+    group: network
+    layer: 40
     description: Anycast static-IP edge ingress routed over the cloud backbone to regional endpoints.
     terraformTypes:
       aws: [aws_globalaccelerator_accelerator, aws_globalaccelerator_listener, aws_globalaccelerator_endpoint_group]
@@ -967,7 +1092,8 @@ categories:
     deployAfter: [load_balancer]
 
   - id: email_service
-    group: data_platform
+    group: data
+    layer: 0
     description: Managed transactional email sending service.
     terraformTypes:
       aws: [aws_sesv2_email_identity, aws_ses_domain_identity, aws_ses_configuration_set]
@@ -976,7 +1102,8 @@ categories:
     deployAfter: []
 
   - id: dedicated_host
-    group: compute_container
+    group: compute
+    layer: 0
     description: Physically dedicated single-tenant host that instances are pinned to.
     terraformTypes:
       aws: [aws_ec2_host]

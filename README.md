@@ -21,7 +21,8 @@ types are just how that concept is realized on a given cloud:
 
 ```yaml
 - id: network
-  group: networking
+  group: network
+  layer: 0
   description: Isolated virtual network (VPC / VNet).
   terraformTypes:
     aws: [aws_vpc]
@@ -46,12 +47,13 @@ Two principles fall out of this:
 
 ## Schema structure
 
-The file has three top-level keys:
+The file has four top-level keys:
 
 | Key          | Meaning                                                              |
 | ------------ | ------------------------------------------------------------------- |
 | `providers`  | The supported clouds. Every category must map all of them.          |
-| `groups`     | Organizational buckets used purely for readability/grouping.        |
+| `groups`     | The nice-named categories (`network`, `data`, `compute`, …).         |
+| `layers`     | The ordered deploy tiers — each a sparse `number`, `name`, `description`. |
 | `categories` | The list of concepts. Each follows the shape below.                 |
 
 Each category:
@@ -59,14 +61,14 @@ Each category:
 | Field            | Rule                                                                       |
 | ---------------- | -------------------------------------------------------------------------- |
 | `id`             | Unique, `snake_case`, the generic concept name.                            |
-| `group`          | One of the declared `groups`.                                              |
+| `group`          | One of the declared `groups` (the resource's nice-named category).         |
+| `layer`          | One of the declared `layers[].number` — its deploy tier (see below).       |
 | `description`    | One-line human summary.                                                     |
 | `terraformTypes` | Map of **every** provider → list of Terraform types (`[]` if no equivalent).|
 | `deployAfter`    | List of other category `id`s that must be deployed **before** this one.    |
 
-Categories are grouped into `networking`, `identity_security`,
-`compute_container`, `storage`, `data_platform`, `management_governance`,
-`ai_ml`, and `devops_integration`.
+The eight groups are `network`, `security`, `compute`, `storage`, `data`,
+`governance`, `ml`, and `devops`.
 
 ## How `deployAfter` is modeled
 
@@ -112,6 +114,45 @@ back and re-`apply` to finish wiring a resource. A few consequences:
 
 A read on the arrows: an arrow `A → B` means **deploy B before A**. Reverse the
 arrows and you get a valid `terraform apply` order.
+
+## Deploy-order layers
+
+Because the `deployAfter` graph is acyclic, it partitions into ordered **layers**.
+Each category is pinned to a `layer` number, and the invariant
+`layer(self) > layer(every dependency)` is enforced, so **applying the layers
+low-to-high is always a valid order** — nothing is ever missing.
+
+The numbers are **sparse (step-10)** so a future intermediary tier can slot in at
+`05`/`15`/… with no renumbering, and they're a **stable, provider-agnostic
+contract** (layer `30` means the same tier for AWS, GCP, and Azure):
+
+| # | name | # | name |
+|---|---|---|---|
+| `00` | foundation | `50` | runtime |
+| `10` | core | `60` | workload |
+| `20` | platform | `70` | delivery |
+| `30` | connectivity | `80` | protection |
+| `40` | scaling | | |
+
+### Suggested monorepo layout
+
+The intended use is a **stack-per-layer** monorepo, with the cloud as a parent
+folder and the layer number as the apply-order contract:
+
+```
+<provider>/<NN>-<group>-<your-service-name>/
+```
+- `<provider>` (`aws/`, `gcp/`, `azure/`) — each cloud is an independent dependency
+  universe, applied on its own.
+- `<NN>` — the layer number. **The only enforced part**; apply low to high.
+- `<group>` — the resource's nice-named group (suggested), e.g. `aws/30-network-…`,
+  `aws/30-ml-…`.
+- `<your-service-name>` — free.
+
+A given cloud simply **skips the numbers it has nothing in** (gaps are expected
+and portable). Stacks can be split across repos as long as everyone honours the
+number ordering. Same-layer stacks never depend on each other, so they apply in
+any order within a layer.
 
 ## Usage
 
@@ -176,7 +217,9 @@ print(network.providers_with_support()) # ['aws', 'gcp', 'azure']
 - every `group` is one of the declared groups;
 - every `deployAfter` entry resolves to an existing category, with no self- or
   duplicate references;
-- the deploy-order graph is **acyclic**, so a single valid deploy order exists.
+- the deploy-order graph is **acyclic**, so a single valid deploy order exists;
+- every `layer` is a declared tier and is **strictly greater** than every
+  dependency's layer, so applying the folder tiers low-to-high always works.
 
 ## Extending the schema
 
@@ -185,7 +228,9 @@ print(network.providers_with_support()) # ['aws', 'gcp', 'azure']
 `id`, pick a `group`, write a one-line `description`, and provide a list for every
 provider (use `[]` where there is no clean equivalent). Add `deployAfter` edges
 using the config-reference test above (does this resource's config reference the
-other?). Run `python -m cloud_architect.validate`.
+other?), then set `layer` to a declared tier strictly above all its dependencies
+(use an existing tier, or insert a new one in `layers` at a gap like `15`). Run
+`python -m cloud_architect.validate`.
 
 **Add a provider mapping:** find the category and add Terraform types under the
 relevant provider key. Prefer the resource that *is* the concept; reach for an

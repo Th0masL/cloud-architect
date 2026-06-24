@@ -19,12 +19,23 @@ DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "categ
 
 
 @dataclass(frozen=True)
+class Layer:
+    """A deploy-order tier: a sparse number, a name, and a short description."""
+
+    number: int
+    name: str
+    description: str = ""
+
+
+@dataclass(frozen=True)
 class Category:
     """A single generic cloud resource category.
 
     Attributes:
         id: Unique snake_case concept name (e.g. ``"kubernetes_cluster"``).
-        group: Organizational grouping (one of :attr:`Schema.groups`).
+        group: The resource's nice-named category (one of :attr:`Schema.groups`).
+        layer: Deploy-tier number (one of :attr:`Schema.layers`); the folder-prefix
+            apply-order contract. Invariant: ``layer`` exceeds every dependency's.
         description: One-line human summary.
         terraform_types: Provider key -> list of Terraform resource type names.
             Every provider in :attr:`Schema.providers` is present; an empty list
@@ -35,6 +46,7 @@ class Category:
 
     id: str
     group: str
+    layer: int
     description: str
     terraform_types: dict[str, list[str]]
     deploy_after: list[str] = field(default_factory=list)
@@ -46,16 +58,22 @@ class Category:
 
 @dataclass(frozen=True)
 class Schema:
-    """The full schema: declared providers, groups, and the categories."""
+    """The full schema: declared providers, groups, deploy-order layers, categories."""
 
     providers: list[str]
     groups: list[str]
+    layers: list[Layer]
     categories: list[Category]
 
     @property
     def by_id(self) -> dict[str, Category]:
         """Categories indexed by id (last wins on duplicates; validation catches those)."""
         return {c.id: c for c in self.categories}
+
+    @property
+    def layer_numbers(self) -> set[int]:
+        """The set of declared layer numbers."""
+        return {layer.number for layer in self.layers}
 
     def get(self, category_id: str) -> Category | None:
         """Return the category with ``category_id`` or ``None`` if absent."""
@@ -90,13 +108,14 @@ def load_schema(path: str | Path | None = None) -> Schema:
 
     providers = _require_str_list(raw, "providers")
     groups = _require_str_list(raw, "groups")
+    layers = _parse_layers(raw)
 
     raw_categories = raw.get("categories")
     if not isinstance(raw_categories, list):
         raise ValueError("`categories` must be a list.")
 
     categories = [_parse_category(entry, index) for index, entry in enumerate(raw_categories)]
-    return Schema(providers=providers, groups=groups, categories=categories)
+    return Schema(providers=providers, groups=groups, layers=layers, categories=categories)
 
 
 def _require_str_list(raw: dict, key: str) -> list[str]:
@@ -106,14 +125,33 @@ def _require_str_list(raw: dict, key: str) -> list[str]:
     return list(value)
 
 
+def _parse_layers(raw: dict) -> list[Layer]:
+    raw_layers = raw.get("layers")
+    if not isinstance(raw_layers, list):
+        raise ValueError("`layers` must be a list.")
+    layers: list[Layer] = []
+    for index, entry in enumerate(raw_layers):
+        if not isinstance(entry, dict) or "number" not in entry or "name" not in entry:
+            raise ValueError(f"layers[{index}] must be a mapping with `number` and `name`.")
+        if not isinstance(entry["number"], int):
+            raise ValueError(f"layers[{index}] `number` must be an integer.")
+        layers.append(
+            Layer(number=entry["number"], name=entry["name"], description=entry.get("description", ""))
+        )
+    return layers
+
+
 def _parse_category(entry: object, index: int) -> Category:
     if not isinstance(entry, dict):
         raise ValueError(f"categories[{index}] must be a mapping.")
 
-    missing = {"id", "group", "description", "terraformTypes"} - entry.keys()
+    missing = {"id", "group", "layer", "description", "terraformTypes"} - entry.keys()
     if missing:
         where = entry.get("id", f"index {index}")
         raise ValueError(f"Category {where!r} is missing required keys: {sorted(missing)}")
+
+    if not isinstance(entry["layer"], int):
+        raise ValueError(f"Category {entry['id']!r}: `layer` must be an integer.")
 
     terraform_types = entry["terraformTypes"]
     if not isinstance(terraform_types, dict):
@@ -131,6 +169,7 @@ def _parse_category(entry: object, index: int) -> Category:
     return Category(
         id=entry["id"],
         group=entry["group"],
+        layer=entry["layer"],
         description=entry["description"],
         terraform_types=normalized_types,
         deploy_after=list(deploy_after),

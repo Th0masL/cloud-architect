@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 __all__ = [
     "Category",
+    "Layer",
     "Schema",
     "load_schema",
     "ValidationError",
@@ -17,10 +18,10 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from cloud_architect.schema import Category, Schema, load_schema
+    from cloud_architect.schema import Category, Layer, Schema, load_schema
     from cloud_architect.validate import ValidationError, validate_schema
 
-_SCHEMA_EXPORTS = {"Category", "Schema", "load_schema"}
+_SCHEMA_EXPORTS = {"Category", "Layer", "Schema", "load_schema"}
 _VALIDATE_EXPORTS = {"ValidationError", "validate_schema"}
 
 

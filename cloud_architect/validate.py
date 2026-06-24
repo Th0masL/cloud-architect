@@ -14,7 +14,9 @@ The checks enforced are:
 * every ``group`` is one of the declared groups;
 * every ``deployAfter`` entry resolves to an existing category, with no
   self-references or duplicates;
-* the deploy-ordering graph is acyclic (so a single deploy order exists).
+* the deploy-ordering graph is acyclic (so a single deploy order exists);
+* every ``layer`` is a declared tier and exceeds every dependency's layer
+  (so applying the folder tiers low-to-high is always a valid order).
 """
 
 from __future__ import annotations
@@ -45,6 +47,35 @@ def validate_schema(schema: Schema) -> list[str]:
     errors += _check_terraform_types(schema)
     errors += _check_dependencies(schema)
     errors += _check_acyclic(schema)
+    errors += _check_layers(schema)
+    return errors
+
+
+def _check_layers(schema: Schema) -> list[str]:
+    errors: list[str] = []
+    numbers = [layer.number for layer in schema.layers]
+    for number in sorted({n for n in numbers if numbers.count(n) > 1}):
+        errors.append(f"Duplicate layer number: {number}")
+    declared = set(numbers)
+    by_id = schema.by_id
+    for category in schema.categories:
+        if category.layer not in declared:
+            errors.append(
+                f"Category {category.id!r} has undeclared layer {category.layer} "
+                f"(declared: {sorted(declared)})."
+            )
+    # The deploy-order contract: a category must sit in a strictly higher layer
+    # than everything it deploys after, so a layer-by-layer apply always works.
+    for category in schema.categories:
+        for dep in category.deploy_after:
+            target = by_id.get(dep)
+            if target is None:
+                continue  # unknown dependency reported elsewhere
+            if category.layer <= target.layer:
+                errors.append(
+                    f"Category {category.id!r} (layer {category.layer}) deploys after "
+                    f"{dep!r} (layer {target.layer}) — must be a strictly higher layer."
+                )
     return errors
 
 

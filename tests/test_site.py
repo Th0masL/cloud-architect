@@ -23,6 +23,7 @@ def test_rendered_data_is_valid_js_payload() -> None:
     end = text.rindex("}") + 1
     payload = json.loads(text[start:end])
     assert payload["providers"] == schema.providers
+    assert [layer["number"] for layer in payload["layers"]] == [layer.number for layer in schema.layers]
     assert {c["id"] for c in payload["categories"]} == {c.id for c in schema.categories}
     for category in payload["categories"]:
-        assert set(category) == {"id", "group", "description", "terraformTypes", "deployAfter"}
+        assert set(category) == {"id", "group", "layer", "description", "terraformTypes", "deployAfter"}
