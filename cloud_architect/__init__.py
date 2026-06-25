@@ -1,4 +1,4 @@
-"""Concept-first cloud resource category schema: loading, validation, querying.
+"""Vendor-neutral cloud resource schema: loading, validation, querying.
 
 Public API is exposed lazily (PEP 562) so that running a submodule directly with
 ``python -m cloud_architect.validate`` does not trigger an import-order warning.
@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 __all__ = [
-    "Category",
+    "Resource",
     "Layer",
     "Schema",
     "load_schema",
@@ -18,10 +18,10 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from cloud_architect.schema import Category, Layer, Schema, load_schema
+    from cloud_architect.schema import Resource, Layer, Schema, load_schema
     from cloud_architect.validate import ValidationError, validate_schema
 
-_SCHEMA_EXPORTS = {"Category", "Layer", "Schema", "load_schema"}
+_SCHEMA_EXPORTS = {"Resource", "Layer", "Schema", "load_schema"}
 _VALIDATE_EXPORTS = {"ValidationError", "validate_schema"}
 
 

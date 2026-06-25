@@ -60,7 +60,7 @@
     padding: 16px; overflow-y: auto;
   }
   #panel h2 { font-size: 15px; margin: 0 0 2px; }
-  #panel .grouptag {
+  #panel .categorytag {
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
     margin-bottom: 10px;
   }
@@ -91,17 +91,19 @@
   .edge { fill: none; stroke: var(--line); stroke-width: 1.4; transition: opacity .12s, stroke .12s; }
   .dim { opacity: 0.10; }
   .edge.hl { stroke: var(--accent); stroke-width: 2; opacity: 0.95; }
+  .edge.hard { stroke: #f59e0b; stroke-width: 2.2; }
+  .edge.hard.hl { stroke: #f59e0b; }
   .node.sel rect { stroke-width: 3 !important; }
 </style>
 </head>
 <body>
   <header>
     <h1>cloud-architect</h1>
-    <span class="sub">concept deploy-order graph &nbsp;·&nbsp; an arrow <code>A → B</code> means <b>A deploys after B</b> (deploy B first)</span>
+    <span class="sub">resource deploy-order graph &nbsp;·&nbsp; an arrow <code>A → B</code> means <b>A deploys after B</b> (deploy B first)</span>
   </header>
 
   <div class="toolbar">
-    <input id="search" type="search" placeholder="Search categories…" autocomplete="off" />
+    <input id="search" type="search" placeholder="Search resources…" autocomplete="off" />
     <div class="legend" id="legend"></div>
     <div class="spacer"></div>
     <button class="btn" id="zoom-out">−</button>
@@ -123,8 +125,8 @@
   if (!DATA) { document.getElementById("panel").textContent = "Could not load data.js"; return; }
 
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const GROUP_COLORS = {
-    network:    "#38bdf8",
+  const CATEGORY_COLORS = {
+    networking: "#38bdf8",
     security:   "#f87171",
     compute:    "#a78bfa",
     storage:    "#fbbf24",
@@ -133,8 +135,8 @@
     ml:         "#22d3ee",
     devops:     "#a3e635",
   };
-  const GROUP_LABEL = {
-    network: "network",
+  const CATEGORY_LABEL = {
+    networking: "networking",
     security: "security",
     compute: "compute",
     storage: "storage",
@@ -146,18 +148,31 @@
   const NODE_W = 212, NODE_H = 34, COL_GAP = 300, ROW_GAP = 50, MARGIN = 44;
 
   // ---- index the schema -----------------------------------------------------
-  const cats = DATA.categories;
+  const cats = DATA.resources;
   const byId = new Map(cats.map(c => [c.id, c]));
-  const groupOrder = new Map(DATA.groups.map((g, i) => [g, i]));
+  const categoryOrder = new Map(DATA.categories.map((g, i) => [g, i]));
   const dependents = new Map(cats.map(c => [c.id, []]));   // reverse edges
   for (const c of cats) for (const dep of c.deployAfter) {
     if (dependents.has(dep)) dependents.get(dep).push(c.id);
   }
 
+  // ---- provider universes: a deployAfter edge is HARD when it crosses one -----
+  const provUniverse = {};
+  for (const u in (DATA.universes || {})) for (const p of DATA.universes[u]) provUniverse[p] = u;
+  const universeOf = (c) => {
+    const us = new Set();
+    for (const p in c.terraformResources) if (provUniverse[p]) us.add(provUniverse[p]);
+    return us.size === 1 ? [...us][0] : null;
+  };
+  const uni = new Map(cats.map(c => [c.id, universeOf(c)]));
+  const isHard = (a, b) => uni.get(a) && uni.get(b) && uni.get(a) !== uni.get(b);
+  let hardCount = 0;
+  for (const c of cats) for (const dep of c.deployAfter) if (isHard(c.id, dep)) hardCount++;
+
   // ---- columns are the pinned deploy-order layers (00, 10, 20, ...) ----------
   const layerNums = [...new Set(cats.map(c => c.layer))].sort((a, b) => a - b);
   const colOf = new Map(layerNums.map((n, i) => [n, i]));          // layer number -> column
-  const layerName = new Map((DATA.layers || []).map(l => [l.number, l.name]));
+  const layerDesc = new Map((DATA.layers || []).map(l => [l.number, l.description]));
   const depth = new Map(cats.map(c => [c.id, colOf.get(c.layer)]));  // depth == column index
   const maxDepth = layerNums.length - 1;
 
@@ -168,18 +183,18 @@
   const contentH = maxCount * ROW_GAP;
   const pos = new Map();   // id -> {x,y,cx,cy}
 
-  const byGroupThenId = (a, b) =>
-    (groupOrder.get(byId.get(a).group) - groupOrder.get(byId.get(b).group)) || a.localeCompare(b);
+  const byCategoryThenId = (a, b) =>
+    (categoryOrder.get(byId.get(a).category) - categoryOrder.get(byId.get(b).category)) || a.localeCompare(b);
 
   for (let d = 0; d <= maxDepth; d++) {
     const col = layers[d];
     if (d === 0) {
-      col.sort(byGroupThenId);
+      col.sort(byCategoryThenId);
     } else {
       // barycenter: order by the mean vertical position of already-placed deps
       col.sort((a, b) => {
         const ka = bary(a), kb = bary(b);
-        return (ka - kb) || byGroupThenId(a, b);
+        return (ka - kb) || byCategoryThenId(a, b);
       });
     }
     const colH = col.length * ROW_GAP;
@@ -205,7 +220,8 @@
 
   const defs = el("defs");
   defs.appendChild(marker("arrow", "#64748b"));
-  defs.appendChild(marker("arrow-hl", GROUP_COLORS_ACCENT()));
+  defs.appendChild(marker("arrow-hl", CATEGORY_COLORS_ACCENT()));
+  defs.appendChild(marker("arrow-hard", "#f59e0b"));
   svg.appendChild(defs);
 
   const edgeLayer = el("g");
@@ -220,8 +236,10 @@
       const s = pos.get(c.id), t = pos.get(dep);       // s = dependent, t = dependency
       const sx = s.x, sy = s.cy, tx = t.x + NODE_W, ty = t.cy;
       const mx = (sx + tx) / 2;
-      const path = el("path", { class: "edge", d: `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`,
-                                "marker-end": "url(#arrow)" });
+      const hard = isHard(c.id, dep);
+      const path = el("path", { class: "edge" + (hard ? " hard" : ""),
+                                d: `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`,
+                                "marker-end": hard ? "url(#arrow-hard)" : "url(#arrow)" });
       path.dataset.from = c.id; path.dataset.to = dep;
       edgeLayer.appendChild(path);
       edgeEls.push({ el: path, from: c.id, to: dep });
@@ -231,7 +249,7 @@
   const nodeEls = new Map();
   for (const c of cats) {
     const p = pos.get(c.id);
-    const color = GROUP_COLORS[c.group] || "#94a3b8";
+    const color = CATEGORY_COLORS[c.category] || "#94a3b8";
     const g = el("g", { class: "node" });
     g.dataset.id = c.id;
     const rect = el("rect", { x: p.x, y: p.y, width: NODE_W, height: NODE_H, rx: 8,
@@ -253,7 +271,8 @@
     const num = layerNums[i];
     const t = el("text", { x: MARGIN + i * COL_GAP + NODE_W / 2, y: 22, "text-anchor": "middle",
       "font-size": 13, "font-weight": 600, fill: "var(--muted)" });
-    t.textContent = String(num).padStart(2, "0") + "  " + (layerName.get(num) || "");
+    t.textContent = "L" + String(num).padStart(2, "0");
+    const tt = el("title"); tt.textContent = layerDesc.get(num) || ""; t.appendChild(tt);
     headerLayer.appendChild(t);
   }
 
@@ -284,7 +303,7 @@
       e.el.setAttribute("marker-end", onChain ? "url(#arrow-hl)" : "url(#arrow)");
     }
     renderPanel(id, anc, desc);
-    applyGroupFilter();
+    applyCategoryFilter();
     const g = nodeEls.get(id);
     if (g) g.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   }
@@ -294,7 +313,7 @@
     nodeEls.forEach(g => g.classList.remove("dim", "sel"));
     for (const e of edgeEls) { e.el.classList.remove("hl", "dim"); e.el.setAttribute("marker-end", "url(#arrow)"); }
     document.getElementById("search").value = "";
-    applyGroupFilter();
+    applyCategoryFilter();
     renderIntro();
   }
 
@@ -309,32 +328,32 @@
         deploy-order neighbourhood (everything that must deploy before it, and everything that
         deploys after it) and see its details here.</p>
       <h3>At a glance</h3>
-      <p class="stat">${cats.length} categories · ${edges} deployAfter edges · ${DATA.providers.length} providers</p>
-      <p class="stat">${roots} foundational categories (deploy first) · ${maxDepth + 1} deploy-order layers</p>
+      <p class="stat">${cats.length} resources · ${edges} deployAfter edges · <b style="color:#f59e0b">${hardCount}</b> hard boundaries · ${DATA.providers.length} providers</p>
+      <p class="stat">${roots} foundational resources (deploy first) · ${maxDepth + 1} deploy-order layers</p>
       <p class="stat">Columns are layered by deploy depth: foundations on the left, later-deploying services on the right.</p>`;
   }
   function renderPanel(id, anc, desc) {
     const c = byId.get(id);
-    const color = GROUP_COLORS[c.group];
-    const tf = DATA.providers.map(p => {
-      const types = c.terraformTypes[p] || [];
+    const color = CATEGORY_COLORS[c.category];
+    const tf = DATA.providers.filter(p => p in c.terraformResources).map(p => {
+      const types = c.terraformResources[p] || [];
       const body = types.length
         ? types.map(t => `<code>${esc(t)}</code>`).join(" ")
         : `<span class="tf-empty">— no direct equivalent</span>`;
       return `<div class="tf-prov">${p}</div><div class="tf-list">${body}</div>`;
     }).join("");
     const lnum = String(c.layer).padStart(2, "0");
-    const lname = layerName.get(c.layer) || "";
+    const ldesc = layerDesc.get(c.layer) || "";
     panel.innerHTML = `
       <h2>${esc(c.id)}</h2>
-      <span class="grouptag" style="background:${color}28;color:${color}">${GROUP_LABEL[c.group] || c.group}</span>
+      <span class="categorytag" style="background:${color}28;color:${color}">${CATEGORY_LABEL[c.category] || c.category}</span>
       <p class="desc">${esc(c.description)}</p>
-      <p class="stat">tier <b>${lnum}</b> ${esc(lname)} · suggested folder <code>&lt;cloud&gt;/${lnum}-${esc(c.group)}-&lt;name&gt;</code></p>
+      <p class="stat">tier <b>L${lnum}</b>${ldesc ? " — " + esc(ldesc) : ""}${uni.get(c.id) ? ` · <span style="color:#f59e0b">${esc(uni.get(c.id))}</span> universe` : ""} · suggested folder <code>${uni.get(c.id) === "cluster" ? "kubernetes" : "&lt;cloud&gt;"}/${lnum}-${esc(c.category)}-&lt;name&gt;</code></p>
       <h3>Terraform types</h3>${tf}
       <h3>Deploys after (${c.deployAfter.length})</h3>${relRow(c.deployAfter)}
       <h3>Deploys before (${dependents.get(id).length})</h3>${relRow(dependents.get(id))}
       <h3>Transitive</h3>
-      <p class="stat">deploys after ${anc.size} categories in total · ${desc.size} categories deploy after it (directly or indirectly)</p>`;
+      <p class="stat">deploys after ${anc.size} resources in total · ${desc.size} resources deploy after it (directly or indirectly)</p>`;
     panel.querySelectorAll(".pill").forEach(p =>
       p.addEventListener("click", () => select(p.dataset.id)));
   }
@@ -345,26 +364,26 @@
       `</div>`;
   }
 
-  // ---- legend / group filter ------------------------------------------------
-  const activeGroups = new Set(DATA.groups);
+  // ---- legend / category filter ------------------------------------------------
+  const activeCategories = new Set(DATA.categories);
   const legend = document.getElementById("legend");
-  for (const g of DATA.groups) {
+  for (const g of DATA.categories) {
     const chip = document.createElement("span");
-    chip.className = "chip"; chip.dataset.group = g;
-    chip.innerHTML = `<span class="dot" style="background:${GROUP_COLORS[g]}"></span>${GROUP_LABEL[g] || g}`;
+    chip.className = "chip"; chip.dataset.category = g;
+    chip.innerHTML = `<span class="dot" style="background:${CATEGORY_COLORS[g]}"></span>${CATEGORY_LABEL[g] || g}`;
     chip.addEventListener("click", () => {
-      if (activeGroups.has(g)) activeGroups.delete(g); else activeGroups.add(g);
-      chip.classList.toggle("off", !activeGroups.has(g));
-      applyGroupFilter();
+      if (activeCategories.has(g)) activeCategories.delete(g); else activeCategories.add(g);
+      chip.classList.toggle("off", !activeCategories.has(g));
+      applyCategoryFilter();
     });
     legend.appendChild(chip);
   }
-  function applyGroupFilter() {
+  function applyCategoryFilter() {
     nodeEls.forEach((el, id) => {
-      el.style.display = activeGroups.has(byId.get(id).group) ? "" : "none";
+      el.style.display = activeCategories.has(byId.get(id).category) ? "" : "none";
     });
     for (const e of edgeEls) {
-      const vis = activeGroups.has(byId.get(e.from).group) && activeGroups.has(byId.get(e.to).group);
+      const vis = activeCategories.has(byId.get(e.from).category) && activeCategories.has(byId.get(e.to).category);
       e.el.style.display = vis ? "" : "none";
     }
   }
@@ -377,7 +396,7 @@
     nodeEls.forEach((g, id) => {
       const c = byId.get(id);
       const hit = id.includes(q) || c.description.toLowerCase().includes(q) ||
-        DATA.providers.some(p => (c.terraformTypes[p] || []).some(t => t.toLowerCase().includes(q)));
+        DATA.providers.some(p => (c.terraformResources[p] || []).some(t => t.toLowerCase().includes(q)));
       g.classList.toggle("dim", !hit);
       g.classList.remove("sel");
     });
@@ -413,7 +432,7 @@
     m.appendChild(el("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color }));
     return m;
   }
-  function GROUP_COLORS_ACCENT() { return "#38bdf8"; }
+  function CATEGORY_COLORS_ACCENT() { return "#38bdf8"; }
   function esc(s) { return String(s).replace(/[&<>"]/g, ch =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
 

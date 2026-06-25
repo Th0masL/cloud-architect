@@ -3,10 +3,13 @@ window.GRAPH_DATA = {
   "providers": [
     "aws",
     "gcp",
-    "azure"
+    "azure",
+    "kubernetes",
+    "helm",
+    "kubectl"
   ],
-  "groups": [
-    "network",
+  "categories": [
+    "networking",
     "security",
     "compute",
     "storage",
@@ -15,60 +18,72 @@ window.GRAPH_DATA = {
     "ml",
     "devops"
   ],
+  "universes": {
+    "cloud": [
+      "aws",
+      "gcp",
+      "azure"
+    ],
+    "cluster": [
+      "kubernetes",
+      "helm",
+      "kubectl"
+    ]
+  },
   "layers": [
     {
       "number": 0,
-      "name": "foundation",
+      "label": "L00",
       "description": "Roots — depend on nothing."
     },
     {
       "number": 10,
-      "name": "core",
-      "description": "Built directly on the foundation."
+      "label": "L10",
+      "description": "Built directly on the L00 roots."
     },
     {
       "number": 20,
-      "name": "platform",
+      "label": "L20",
       "description": "Managed services and clusters."
     },
     {
       "number": 30,
-      "name": "connectivity",
+      "label": "L30",
       "description": "Gateways, load balancers, platform extensions."
     },
     {
       "number": 40,
-      "name": "scaling",
+      "label": "L40",
       "description": "Fleets, endpoints, attachments."
     },
     {
       "number": 50,
-      "name": "runtime",
+      "label": "L50",
       "description": "Where workloads run."
     },
     {
       "number": 60,
-      "name": "workload",
+      "label": "L60",
       "description": "Running services and jobs."
     },
     {
       "number": 70,
-      "name": "delivery",
+      "label": "L70",
       "description": "Edge delivery."
     },
     {
       "number": 80,
-      "name": "protection",
+      "label": "L80",
       "description": "Edge protection."
     }
   ],
-  "categories": [
+  "resources": [
     {
-      "id": "network",
-      "group": "network",
+      "id": "virtual_network",
+      "category": "networking",
       "layer": 0,
       "description": "Isolated virtual network (VPC / VNet).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_vpc"
         ],
@@ -83,10 +98,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "subnet",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "IP range carved out of a network.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_subnet"
         ],
@@ -98,15 +113,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "route_table",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Routing rules that steer traffic within/out of a network.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_route_table",
           "aws_route"
@@ -120,15 +135,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "internet_gateway",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Egress/ingress to the public internet for a network.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_internet_gateway",
           "aws_egress_only_internet_gateway"
@@ -137,15 +152,15 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "nat_gateway",
-      "group": "network",
+      "category": "networking",
       "layer": 30,
       "description": "Outbound-only internet access for private subnets.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_nat_gateway"
         ],
@@ -163,10 +178,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "firewall",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Stateful traffic filter / security group container.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_security_group"
         ],
@@ -179,15 +194,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "firewall_rule",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Individual ingress/egress rule (incl. AWS security group rules).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_security_group_rule",
           "aws_vpc_security_group_ingress_rule",
@@ -208,10 +223,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "load_balancer",
-      "group": "network",
+      "category": "networking",
       "layer": 30,
       "description": "Distributes traffic across backends (L4/L7).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_lb",
           "aws_lb_listener",
@@ -241,10 +256,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "dns_zone",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Authoritative DNS namespace.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_route53_zone"
         ],
@@ -257,15 +272,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "dns_record",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "A record set within a DNS zone.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_route53_record"
         ],
@@ -283,10 +298,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "tls_certificate",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "TLS/SSL certificate for terminating HTTPS.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_acm_certificate"
         ],
@@ -306,10 +321,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "vpn_gateway",
-      "group": "network",
+      "category": "networking",
       "layer": 30,
       "description": "Site-to-site / client VPN termination.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_vpn_gateway",
           "aws_vpn_connection",
@@ -337,10 +352,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "private_connectivity",
-      "group": "network",
+      "category": "networking",
       "layer": 40,
       "description": "Private access to services without traversing the internet (PrivateLink / Private Service Connect / Private Endpoint).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_vpc_endpoint",
           "aws_vpc_endpoint_service"
@@ -362,10 +377,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "identity",
-      "group": "security",
+      "category": "security",
       "layer": 0,
       "description": "Workload/principal identity (IAM role / service account / managed identity).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_iam_role",
           "aws_iam_instance_profile",
@@ -383,10 +398,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "access_policy",
-      "group": "security",
+      "category": "security",
       "layer": 10,
       "description": "Permission grant / authorization rule attached to an identity.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_iam_policy",
           "aws_iam_role_policy"
@@ -410,10 +425,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "encryption_key",
-      "group": "security",
+      "category": "security",
       "layer": 0,
       "description": "Managed encryption key (KMS / Key Vault key).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_kms_key",
           "aws_kms_alias"
@@ -430,10 +445,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "secret",
-      "group": "security",
+      "category": "security",
       "layer": 10,
       "description": "An individual stored secret value.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_secretsmanager_secret",
           "aws_secretsmanager_secret_version"
@@ -452,10 +467,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "compute_instance",
-      "group": "compute",
+      "category": "compute",
       "layer": 50,
       "description": "Virtual machine.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_instance"
         ],
@@ -479,10 +494,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "autoscaling_group",
-      "group": "compute",
+      "category": "compute",
       "layer": 40,
       "description": "Self-healing, auto-scaling fleet of VMs.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_autoscaling_group",
           "aws_launch_template"
@@ -512,10 +527,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "serverless_function",
-      "group": "compute",
+      "category": "compute",
       "layer": 20,
       "description": "Event-driven function-as-a-service.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_lambda_function"
         ],
@@ -539,10 +554,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_registry",
-      "group": "compute",
+      "category": "compute",
       "layer": 0,
       "description": "Stores and serves container images.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ecr_repository"
         ],
@@ -557,10 +572,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_service",
-      "group": "compute",
+      "category": "compute",
       "layer": 60,
       "description": "Long-running container service (ECS service / Cloud Run / Container Apps).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ecs_service"
         ],
@@ -579,10 +594,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "kubernetes_cluster",
-      "group": "compute",
+      "category": "compute",
       "layer": 20,
       "description": "Managed Kubernetes control plane (EKS / GKE / AKS).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_eks_cluster"
         ],
@@ -604,10 +619,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "kubernetes_node_pool",
-      "group": "compute",
+      "category": "compute",
       "layer": 30,
       "description": "Group of worker nodes attached to a Kubernetes cluster.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_eks_node_group",
           "aws_eks_fargate_profile"
@@ -626,10 +641,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_task_definition",
-      "group": "compute",
+      "category": "compute",
       "layer": 30,
       "description": "Declarative container task spec (ECS task definition).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ecs_task_definition"
         ],
@@ -644,10 +659,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_service_autoscaling",
-      "group": "compute",
+      "category": "compute",
       "layer": 70,
       "description": "Scaling policy/target for a container service (ECS Application Auto Scaling).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_appautoscaling_target",
           "aws_appautoscaling_policy"
@@ -661,10 +676,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_job",
-      "group": "compute",
+      "category": "compute",
       "layer": 60,
       "description": "Run-to-completion batch/container job (AWS Batch / Cloud Run Jobs / Container Apps Jobs).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_batch_job_definition"
         ],
@@ -683,10 +698,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_instance",
-      "group": "compute",
+      "category": "compute",
       "layer": 20,
       "description": "Single standalone container without an orchestrator (Azure Container Instances).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -703,10 +718,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "object_storage",
-      "group": "storage",
+      "category": "storage",
       "layer": 0,
       "description": "Bucket-based object/blob storage.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_s3_bucket"
         ],
@@ -722,10 +737,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "block_storage",
-      "group": "storage",
+      "category": "storage",
       "layer": 10,
       "description": "Attachable raw block volume.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ebs_volume"
         ],
@@ -742,10 +757,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "file_storage",
-      "group": "storage",
+      "category": "storage",
       "layer": 20,
       "description": "Managed network file share (NFS/SMB).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_efs_file_system",
           "aws_efs_mount_target",
@@ -769,10 +784,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "archive_storage",
-      "group": "storage",
+      "category": "storage",
       "layer": 0,
       "description": "Cold/archival storage for rarely accessed data.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_glacier_vault"
         ],
@@ -783,10 +798,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "backup",
-      "group": "storage",
+      "category": "storage",
       "layer": 10,
       "description": "Scheduled backups / snapshot policies and their vaults.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_backup_vault",
           "aws_backup_plan"
@@ -805,10 +820,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "relational_database",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed relational (SQL) database — see nosql_database for non-relational stores.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_db_instance",
           "aws_rds_cluster",
@@ -836,10 +851,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "cache",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed in-memory cache (Redis / Memcached).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_elasticache_cluster",
           "aws_elasticache_replication_group",
@@ -859,10 +874,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "message_bus",
-      "group": "data",
+      "category": "data",
       "layer": 0,
       "description": "Publish/subscribe broadcast topic (see event_bus for rule-based routing).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sns_topic"
         ],
@@ -877,10 +892,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "queue",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Point-to-point message queue.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sqs_queue"
         ],
@@ -898,10 +913,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "stream",
-      "group": "data",
+      "category": "data",
       "layer": 0,
       "description": "Ordered, replayable event/data stream.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_kinesis_stream",
           "aws_kinesis_firehose_delivery_stream"
@@ -915,10 +930,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "analytics_warehouse",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed analytics / data warehouse.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_redshift_cluster"
         ],
@@ -939,10 +954,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "logging",
-      "group": "data",
+      "category": "data",
       "layer": 0,
       "description": "Log collection, storage, and routing.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudwatch_log_group"
         ],
@@ -958,10 +973,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "monitoring",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Metrics, alarms, and dashboards.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudwatch_metric_alarm",
           "aws_cloudwatch_dashboard"
@@ -981,10 +996,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "tracing",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Distributed request tracing.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_xray_sampling_rule",
           "aws_xray_group"
@@ -1000,10 +1015,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "application_config",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Non-secret application configuration / parameter store.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ssm_parameter",
           "aws_appconfig_application"
@@ -1021,10 +1036,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "scheduler",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Cron/recurring task trigger.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_scheduler_schedule"
         ],
@@ -1041,10 +1056,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "secret_store",
-      "group": "data",
+      "category": "data",
       "layer": 0,
       "description": "Managed secret store / vault that holds secrets (see `secret`).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -1055,10 +1070,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "api_gateway",
-      "group": "data",
+      "category": "data",
       "layer": 50,
       "description": "Managed API front door (routing, auth, throttling).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_api_gateway_rest_api",
           "aws_apigatewayv2_api"
@@ -1081,10 +1096,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "cdn",
-      "group": "data",
+      "category": "data",
       "layer": 70,
       "description": "Content delivery network / edge cache.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudfront_distribution"
         ],
@@ -1103,10 +1118,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "full_text_search",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed lexical full-text search / indexing (see vector_search for embeddings).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_opensearch_domain"
         ],
@@ -1123,10 +1138,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "nosql_database",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed non-relational document / key-value database.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_dynamodb_table",
           "aws_dynamodb_global_table",
@@ -1148,10 +1163,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "wide_column_database",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Petabyte-scale wide-column / columnar NoSQL store (Bigtable / Cassandra model).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_keyspaces_keyspace",
           "aws_keyspaces_table"
@@ -1171,10 +1186,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "time_series_database",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Purpose-built time-series store for high-cardinality timestamped data.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_timestreamwrite_database",
           "aws_timestreamwrite_table"
@@ -1191,10 +1206,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "managed_kafka",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed Apache Kafka broker cluster (Kafka wire-protocol streaming).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_msk_cluster",
           "aws_msk_serverless_cluster"
@@ -1216,10 +1231,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "event_bus",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Rule-based event router / event bus with content filtering (vs broadcast message_bus).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudwatch_event_bus",
           "aws_cloudwatch_event_rule",
@@ -1240,10 +1255,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "notification",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Multi-channel end-user notification delivery (push / SMS / email).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_pinpoint_app",
           "aws_sns_platform_application"
@@ -1260,10 +1275,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "data_pipeline",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed ETL/ELT batch & streaming data transformation jobs.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_glue_job",
           "aws_glue_trigger",
@@ -1287,10 +1302,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "data_catalog",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Central metadata catalog, schema registry, and data-lake governance.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_glue_catalog_database",
           "aws_glue_catalog_table",
@@ -1312,10 +1327,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "database_migration",
-      "group": "data",
+      "category": "data",
       "layer": 30,
       "description": "Managed database migration & continuous replication (CDC) service.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_dms_replication_instance",
           "aws_dms_replication_task",
@@ -1337,10 +1352,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "vector_search",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Managed vector / embedding index for similarity search (RAG, semantic search).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_opensearchserverless_collection"
         ],
@@ -1351,16 +1366,16 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "network",
+        "virtual_network",
         "object_storage"
       ]
     },
     {
-      "id": "vpc_peering",
-      "group": "network",
+      "id": "network_peering",
+      "category": "networking",
       "layer": 10,
       "description": "Direct private network-to-network peering (non-transitive).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_vpc_peering_connection",
           "aws_vpc_peering_connection_accepter"
@@ -1373,15 +1388,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "network_interface",
-      "group": "network",
+      "category": "networking",
       "layer": 40,
       "description": "Attachable elastic NIC / vNIC carrying private IPs in a subnet.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_network_interface",
           "aws_network_interface_attachment"
@@ -1398,10 +1413,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "static_ip",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Reserved static public/internal IP address.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_eip",
           "aws_eip_association"
@@ -1421,10 +1436,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "waf",
-      "group": "network",
+      "category": "networking",
       "layer": 60,
       "description": "Layer-7 web application firewall / managed rule set (vs L3-4 firewall).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_wafv2_web_acl",
           "aws_wafv2_web_acl_association",
@@ -1445,10 +1460,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "network_acl",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Stateless subnet-level allow/deny ACL (distinct from stateful firewall).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_network_acl",
           "aws_network_acl_rule",
@@ -1463,10 +1478,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "transit_gateway",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Hub-and-spoke transit fabric interconnecting many networks and on-prem.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ec2_transit_gateway",
           "aws_ec2_transit_gateway_vpc_attachment",
@@ -1488,10 +1503,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "hybrid_interconnect",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Dedicated private leased-line connectivity to on-prem (DirectConnect / Interconnect / ExpressRoute).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_dx_connection",
           "aws_dx_gateway",
@@ -1508,15 +1523,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "flow_log",
-      "group": "network",
+      "category": "networking",
       "layer": 50,
       "description": "Capture of IP traffic metadata for a network/subnet/NIC.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_flow_log"
         ],
@@ -1534,10 +1549,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "dns_resolver",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Inbound/outbound DNS resolver endpoints and forwarding rules for hybrid DNS.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_route53_resolver_endpoint",
           "aws_route53_resolver_rule",
@@ -1560,10 +1575,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "ddos_protection",
-      "group": "network",
+      "category": "networking",
       "layer": 80,
       "description": "Managed volumetric DDoS mitigation.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_shield_protection",
           "aws_shield_protection_group"
@@ -1581,10 +1596,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "bastion",
-      "group": "network",
+      "category": "networking",
       "layer": 30,
       "description": "Managed jump-host for secure admin access to private networks.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -1598,10 +1613,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "global_traffic_manager",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "DNS-based global traffic routing / failover across regions.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_route53_traffic_policy",
           "aws_route53_traffic_policy_instance"
@@ -1619,10 +1634,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "service_discovery",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Service registry mapping logical service names to instances/IPs.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_service_discovery_service",
           "aws_service_discovery_private_dns_namespace",
@@ -1636,15 +1651,15 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "paas_application",
-      "group": "compute",
+      "category": "compute",
       "layer": 20,
       "description": "Fully-managed source-to-URL PaaS web/app platform.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_elastic_beanstalk_application",
           "aws_elastic_beanstalk_environment",
@@ -1669,10 +1684,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "container_environment",
-      "group": "compute",
+      "category": "compute",
       "layer": 50,
       "description": "Cluster/environment boundary that container services run inside.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ecs_cluster",
           "aws_ecs_capacity_provider",
@@ -1690,10 +1705,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "machine_image",
-      "group": "compute",
+      "category": "compute",
       "layer": 30,
       "description": "Golden/custom VM boot image used as a template for instances.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ami",
           "aws_ami_copy",
@@ -1717,10 +1732,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "batch_compute_environment",
-      "group": "compute",
+      "category": "compute",
       "layer": 40,
       "description": "Managed batch/HPC compute environment that autoscales jobs to completion.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_batch_compute_environment",
           "aws_batch_job_queue"
@@ -1743,10 +1758,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "edge_function",
-      "group": "compute",
+      "category": "compute",
       "layer": 0,
       "description": "Lightweight compute running at CDN/edge POPs.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudfront_function"
         ],
@@ -1757,10 +1772,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "service_mesh",
-      "group": "compute",
+      "category": "compute",
       "layer": 20,
       "description": "Managed service mesh control plane for service-to-service traffic.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_appmesh_mesh",
           "aws_appmesh_virtual_service",
@@ -1780,10 +1795,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "workflow",
-      "group": "compute",
+      "category": "compute",
       "layer": 10,
       "description": "Managed multi-step workflow / state-machine orchestration.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sfn_state_machine"
         ],
@@ -1801,10 +1816,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "volume_snapshot",
-      "group": "storage",
+      "category": "storage",
       "layer": 20,
       "description": "Point-in-time snapshot of a block volume (vs managed backup vaults).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ebs_snapshot",
           "aws_ebs_snapshot_copy"
@@ -1822,10 +1837,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "identity_provider",
-      "group": "security",
+      "category": "security",
       "layer": 0,
       "description": "Federated identity trust (SAML/OIDC providers, workforce/workload identity).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_iam_saml_provider",
           "aws_iam_openid_connect_provider"
@@ -1845,10 +1860,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "private_certificate_authority",
-      "group": "security",
+      "category": "security",
       "layer": 10,
       "description": "Private PKI / certificate authority issuing internal X.509 certs.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_acmpca_certificate_authority",
           "aws_acmpca_certificate"
@@ -1866,10 +1881,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "managed_hsm",
-      "group": "security",
+      "category": "security",
       "layer": 20,
       "description": "Dedicated single-tenant hardware security module backing key storage.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudhsm_v2_cluster",
           "aws_cloudhsm_v2_hsm"
@@ -1886,10 +1901,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "ssh_key_pair",
-      "group": "security",
+      "category": "security",
       "layer": 0,
       "description": "Named SSH public-key resource for VM/instance access.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_key_pair"
         ],
@@ -1902,10 +1917,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "resource_container",
-      "group": "governance",
+      "category": "governance",
       "layer": 0,
       "description": "Account/project/subscription + org-hierarchy container that scopes resources, IAM, and billing.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_organizations_organization",
           "aws_organizations_organizational_unit",
@@ -1925,10 +1940,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "audit_log",
-      "group": "governance",
+      "category": "governance",
       "layer": 10,
       "description": "Account/org-level audit & activity trail (vs application logging).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cloudtrail"
         ],
@@ -1949,10 +1964,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "compliance_rule",
-      "group": "governance",
+      "category": "governance",
       "layer": 10,
       "description": "Policy-as-code guardrails & config-compliance (Config / Org Policy / Azure Policy / SCP).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_config_config_rule",
           "aws_config_configuration_recorder",
@@ -1983,10 +1998,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "threat_detection",
-      "group": "governance",
+      "category": "governance",
       "layer": 10,
       "description": "Managed threat detection & cloud security posture management.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_guardduty_detector",
           "aws_securityhub_account",
@@ -2012,13 +2027,13 @@ window.GRAPH_DATA = {
     },
     {
       "id": "budget",
-      "group": "governance",
+      "category": "governance",
       "layer": 10,
       "description": "Cost/budget controls with spend thresholds and alerting.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_budgets_budget",
-          "aws_ce_cost_category",
+          "aws_ce_cost_resource",
           "aws_ce_anomaly_monitor",
           "aws_cur_report_definition"
         ],
@@ -2038,10 +2053,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "ml_platform",
-      "group": "ml",
+      "category": "ml",
       "layer": 30,
       "description": "Managed ML workspace / training platform (jobs, pipelines, model registry).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sagemaker_domain",
           "aws_sagemaker_pipeline",
@@ -2065,10 +2080,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "ml_model_endpoint",
-      "group": "ml",
+      "category": "ml",
       "layer": 40,
       "description": "Managed online/real-time inference endpoint serving a trained model.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sagemaker_endpoint",
           "aws_sagemaker_endpoint_configuration",
@@ -2090,10 +2105,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "generative_ai_endpoint",
-      "group": "ml",
+      "category": "ml",
       "layer": 30,
       "description": "Managed foundation-model / generative-AI service (LLM, embeddings, RAG).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_bedrock_custom_model",
           "aws_bedrockagent_agent",
@@ -2117,10 +2132,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "cicd_pipeline",
-      "group": "devops",
+      "category": "devops",
       "layer": 20,
       "description": "Managed CI/CD build & deploy pipeline.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_codepipeline",
           "aws_codebuild_project"
@@ -2142,10 +2157,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "artifact_repository",
-      "group": "devops",
+      "category": "devops",
       "layer": 0,
       "description": "Managed package/artifact registry (npm, Maven, PyPI — non-container).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_codeartifact_domain",
           "aws_codeartifact_repository"
@@ -2159,10 +2174,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "source_repository",
-      "group": "devops",
+      "category": "devops",
       "layer": 10,
       "description": "Managed Git source-code repository.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_codecommit_repository"
         ],
@@ -2182,10 +2197,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "directory_service",
-      "group": "security",
+      "category": "security",
       "layer": 20,
       "description": "Managed directory (Microsoft AD / LDAP) for domain-joined resources.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_directory_service_directory"
         ],
@@ -2202,10 +2217,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "feature_store",
-      "group": "ml",
+      "category": "ml",
       "layer": 30,
       "description": "Centralized online/offline ML feature store for training and serving.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sagemaker_feature_group"
         ],
@@ -2224,10 +2239,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "managed_notebook",
-      "group": "ml",
+      "category": "ml",
       "layer": 40,
       "description": "Managed interactive notebook / data-science workbench environment.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sagemaker_notebook_instance"
         ],
@@ -2249,10 +2264,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "placement_group",
-      "group": "compute",
+      "category": "compute",
       "layer": 0,
       "description": "Placement strategy controlling physical proximity/spread of instances.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_placement_group"
         ],
@@ -2265,10 +2280,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "global_accelerator",
-      "group": "network",
+      "category": "networking",
       "layer": 40,
       "description": "Anycast static-IP edge ingress routed over the cloud backbone to regional endpoints.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_globalaccelerator_accelerator",
           "aws_globalaccelerator_listener",
@@ -2283,10 +2298,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "email_service",
-      "group": "data",
+      "category": "data",
       "layer": 0,
       "description": "Managed transactional email sending service.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sesv2_email_identity",
           "aws_ses_domain_identity",
@@ -2302,10 +2317,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "dedicated_host",
-      "group": "compute",
+      "category": "compute",
       "layer": 0,
       "description": "Physically dedicated single-tenant host that instances are pinned to.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ec2_host"
         ],
@@ -2322,10 +2337,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "customer_identity",
-      "group": "security",
+      "category": "security",
       "layer": 0,
       "description": "Customer identity & access management (user / identity pools).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_cognito_user_pool",
           "aws_cognito_identity_pool"
@@ -2337,10 +2352,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "distributed_sql_database",
-      "group": "data",
+      "category": "data",
       "layer": 0,
       "description": "Globally-distributed, horizontally-scalable SQL database (Spanner).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [
           "google_spanner_instance"
@@ -2351,10 +2366,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "storage_gateway",
-      "group": "storage",
+      "category": "storage",
       "layer": 0,
       "description": "Hybrid cloud storage gateway.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_storagegateway_gateway"
         ],
@@ -2365,10 +2380,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "cloud_router",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Regional BGP control-plane router for dynamic routing.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [
           "google_compute_router"
@@ -2376,15 +2391,15 @@ window.GRAPH_DATA = {
         "azure": []
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "data_lake",
-      "group": "storage",
+      "category": "storage",
       "layer": 10,
       "description": "Managed analytics data lake store.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -2397,10 +2412,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "data_transfer",
-      "group": "storage",
+      "category": "storage",
       "layer": 10,
       "description": "Managed data transfer / sync service.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_datasync_task"
         ],
@@ -2416,10 +2431,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "iot_hub",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Managed IoT device gateway and registry.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -2433,10 +2448,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "network_firewall_policy",
-      "group": "network",
+      "category": "networking",
       "layer": 10,
       "description": "Reusable rule policy that a network firewall attaches to.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_networkfirewall_firewall_policy"
         ],
@@ -2446,15 +2461,15 @@ window.GRAPH_DATA = {
         ]
       },
       "deployAfter": [
-        "network"
+        "virtual_network"
       ]
     },
     {
       "id": "resource_share",
-      "group": "governance",
+      "category": "governance",
       "layer": 10,
       "description": "Cross-account resource sharing.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ram_resource_share"
         ],
@@ -2467,10 +2482,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "service_perimeter",
-      "group": "security",
+      "category": "security",
       "layer": 10,
       "description": "Service-level network perimeter (VPC Service Controls).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [
           "google_access_context_manager_access_policy",
@@ -2484,10 +2499,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "siem",
-      "group": "security",
+      "category": "security",
       "layer": 10,
       "description": "Managed SIEM / security analytics workspace.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -2500,10 +2515,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "stream_processing",
-      "group": "data",
+      "category": "data",
       "layer": 10,
       "description": "Managed real-time stream processing / streaming analytics.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_kinesisanalyticsv2_application"
         ],
@@ -2520,10 +2535,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "client_vpn",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Managed client/remote-access VPN endpoint into a virtual network.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_ec2_client_vpn_endpoint"
         ],
@@ -2538,10 +2553,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "document_database",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed document (MongoDB-compatible) database.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_docdb_cluster"
         ],
@@ -2556,10 +2571,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "graph_database",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed graph database (Neptune).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_neptune_cluster"
         ],
@@ -2573,14 +2588,16 @@ window.GRAPH_DATA = {
       ]
     },
     {
-      "id": "iam_role_policy_attachment",
-      "group": "security",
+      "id": "role_policy_attachment",
+      "category": "security",
       "layer": 20,
       "description": "Attaches an access policy to an identity (wiring).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_iam_role_policy_attachment",
-          "aws_iam_policy_attachment"
+          "aws_iam_policy_attachment",
+          "aws_iam_user_policy_attachment",
+          "aws_iam_group_policy_attachment"
         ],
         "gcp": [],
         "azure": []
@@ -2592,10 +2609,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "interactive_query",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Serverless interactive query engine (Athena).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_athena_workgroup"
         ],
@@ -2609,10 +2626,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "lakehouse_platform",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed lakehouse / Spark analytics platform (Databricks).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [],
         "gcp": [],
         "azure": [
@@ -2627,10 +2644,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "managed_hadoop",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed Hadoop/Spark big-data cluster (EMR).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_emr_cluster"
         ],
@@ -2646,10 +2663,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "memory_database",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Durable in-memory database (MemoryDB).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_memorydb_cluster"
         ],
@@ -2663,10 +2680,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "message_broker",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Managed message broker (ActiveMQ / RabbitMQ).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_mq_broker"
         ],
@@ -2680,10 +2697,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "network_firewall",
-      "group": "network",
+      "category": "networking",
       "layer": 20,
       "description": "Managed stateful network firewall appliance inspecting traffic from a dedicated subnet.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_networkfirewall_firewall"
         ],
@@ -2699,14 +2716,16 @@ window.GRAPH_DATA = {
     },
     {
       "id": "topic_subscription",
-      "group": "data",
+      "category": "data",
       "layer": 20,
       "description": "Subscribes a queue/endpoint to a pub/sub topic (wiring).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_sns_topic_subscription"
         ],
-        "gcp": [],
+        "gcp": [
+          "google_pubsub_subscription"
+        ],
         "azure": [
           "azurerm_servicebus_subscription"
         ]
@@ -2718,10 +2737,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "event_source_mapping",
-      "group": "data",
+      "category": "data",
       "layer": 30,
       "description": "Wires a serverless function to an event source (queue/stream).",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_lambda_event_source_mapping"
         ],
@@ -2735,10 +2754,10 @@ window.GRAPH_DATA = {
     },
     {
       "id": "ai_guardrail",
-      "group": "ml",
+      "category": "ml",
       "layer": 40,
       "description": "Safety guardrails / content filtering for generative-AI.",
-      "terraformTypes": {
+      "terraformResources": {
         "aws": [
           "aws_bedrock_guardrail"
         ],
@@ -2749,6 +2768,579 @@ window.GRAPH_DATA = {
       },
       "deployAfter": [
         "generative_ai_endpoint"
+      ]
+    },
+    {
+      "id": "key_vault_access_grant",
+      "category": "security",
+      "layer": 10,
+      "description": "Grants an identity access to a secret store / key vault (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [],
+        "azure": [
+          "azurerm_key_vault_access_policy"
+        ]
+      },
+      "deployAfter": [
+        "secret_store",
+        "identity"
+      ]
+    },
+    {
+      "id": "identity_access_binding",
+      "category": "security",
+      "layer": 10,
+      "description": "Grants IAM members access to a service account (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [
+          "google_service_account_iam_member",
+          "google_service_account_iam_binding"
+        ],
+        "azure": []
+      },
+      "deployAfter": [
+        "identity"
+      ]
+    },
+    {
+      "id": "dns_zone_network_association",
+      "category": "networking",
+      "layer": 20,
+      "description": "Links a private DNS zone to a network for internal resolution (wiring).",
+      "terraformResources": {
+        "aws": [
+          "aws_route53_zone_association"
+        ],
+        "gcp": [],
+        "azure": [
+          "azurerm_private_dns_zone_virtual_network_link"
+        ]
+      },
+      "deployAfter": [
+        "dns_zone",
+        "virtual_network"
+      ]
+    },
+    {
+      "id": "firewall_policy_attachment",
+      "category": "networking",
+      "layer": 20,
+      "description": "Attaches a firewall policy to a network (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [
+          "google_compute_network_firewall_policy_association",
+          "google_compute_firewall_policy_association"
+        ],
+        "azure": []
+      },
+      "deployAfter": [
+        "firewall",
+        "virtual_network"
+      ]
+    },
+    {
+      "id": "subnet_association",
+      "category": "networking",
+      "layer": 20,
+      "description": "Associates a subnet with its route table / security group (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [],
+        "azure": [
+          "azurerm_subnet_route_table_association",
+          "azurerm_subnet_network_security_group_association"
+        ]
+      },
+      "deployAfter": [
+        "subnet",
+        "route_table",
+        "firewall"
+      ]
+    },
+    {
+      "id": "transit_gateway_peering",
+      "category": "networking",
+      "layer": 30,
+      "description": "Peers two transit gateways (wiring).",
+      "terraformResources": {
+        "aws": [
+          "aws_ec2_transit_gateway_peering_attachment",
+          "aws_ec2_transit_gateway_peering_attachment_accepter"
+        ],
+        "gcp": [],
+        "azure": []
+      },
+      "deployAfter": [
+        "transit_gateway"
+      ]
+    },
+    {
+      "id": "direct_connect_gateway_association",
+      "category": "networking",
+      "layer": 40,
+      "description": "Associates a Direct Connect gateway with a transit/VPN gateway (wiring).",
+      "terraformResources": {
+        "aws": [
+          "aws_dx_gateway_association"
+        ],
+        "gcp": [],
+        "azure": []
+      },
+      "deployAfter": [
+        "hybrid_interconnect",
+        "vpn_gateway"
+      ]
+    },
+    {
+      "id": "router_bgp_session",
+      "category": "networking",
+      "layer": 40,
+      "description": "BGP interface/peer session on a cloud router (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [
+          "google_compute_router_interface",
+          "google_compute_router_peer"
+        ],
+        "azure": []
+      },
+      "deployAfter": [
+        "cloud_router",
+        "vpn_gateway"
+      ]
+    },
+    {
+      "id": "subnet_nat_gateway_association",
+      "category": "networking",
+      "layer": 40,
+      "description": "Associates a subnet with a NAT gateway (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [],
+        "azure": [
+          "azurerm_subnet_nat_gateway_association"
+        ]
+      },
+      "deployAfter": [
+        "subnet",
+        "nat_gateway"
+      ]
+    },
+    {
+      "id": "autoscaling_group_attachment",
+      "category": "networking",
+      "layer": 50,
+      "description": "Attaches an autoscaling group to a load balancer (wiring).",
+      "terraformResources": {
+        "aws": [
+          "aws_autoscaling_attachment"
+        ],
+        "gcp": [],
+        "azure": []
+      },
+      "deployAfter": [
+        "autoscaling_group",
+        "load_balancer"
+      ]
+    },
+    {
+      "id": "function_invoke_permission",
+      "category": "security",
+      "layer": 60,
+      "description": "Grants an invoker permission to call a serverless function (wiring).",
+      "terraformResources": {
+        "aws": [
+          "aws_lambda_permission"
+        ],
+        "gcp": [],
+        "azure": []
+      },
+      "deployAfter": [
+        "serverless_function",
+        "api_gateway"
+      ]
+    },
+    {
+      "id": "load_balancer_target_attachment",
+      "category": "networking",
+      "layer": 60,
+      "description": "Registers a compute target into a load balancer target group (wiring).",
+      "terraformResources": {
+        "aws": [
+          "aws_lb_target_group_attachment"
+        ],
+        "gcp": [],
+        "azure": []
+      },
+      "deployAfter": [
+        "load_balancer",
+        "compute_instance"
+      ]
+    },
+    {
+      "id": "virtual_machine_extension",
+      "category": "compute",
+      "layer": 60,
+      "description": "Post-deploy extension/config applied to a VM or scale set (wiring).",
+      "terraformResources": {
+        "aws": [],
+        "gcp": [],
+        "azure": [
+          "azurerm_virtual_machine_extension",
+          "azurerm_virtual_machine_scale_set_extension"
+        ]
+      },
+      "deployAfter": [
+        "compute_instance",
+        "autoscaling_group"
+      ]
+    },
+    {
+      "id": "k8s_namespace",
+      "category": "compute",
+      "layer": 30,
+      "description": "Virtual cluster scope that isolates a group of Kubernetes resources.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_namespace",
+          "kubernetes_namespace_v1"
+        ]
+      },
+      "deployAfter": [
+        "kubernetes_cluster"
+      ]
+    },
+    {
+      "id": "k8s_storage_class",
+      "category": "storage",
+      "layer": 30,
+      "description": "Cluster-wide class of storage that volume claims can request.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_storage_class",
+          "kubernetes_storage_class_v1"
+        ]
+      },
+      "deployAfter": [
+        "kubernetes_cluster"
+      ]
+    },
+    {
+      "id": "k8s_cluster_role",
+      "category": "security",
+      "layer": 30,
+      "description": "Cluster-scoped RBAC role (a set of permissions).",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_cluster_role",
+          "kubernetes_cluster_role_v1"
+        ]
+      },
+      "deployAfter": [
+        "kubernetes_cluster"
+      ]
+    },
+    {
+      "id": "k8s_config_map",
+      "category": "compute",
+      "layer": 40,
+      "description": "Non-confidential key/value configuration consumed by pods.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_config_map",
+          "kubernetes_config_map_v1",
+          "kubernetes_config_map_v1_data"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_secret",
+      "category": "security",
+      "layer": 40,
+      "description": "Namespaced confidential key/value data consumed by pods.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_secret",
+          "kubernetes_secret_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_service_account",
+      "category": "security",
+      "layer": 40,
+      "description": "Identity for processes running in a pod.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_service_account",
+          "kubernetes_service_account_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_role",
+      "category": "security",
+      "layer": 40,
+      "description": "Namespaced RBAC role (a set of permissions).",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_role",
+          "kubernetes_role_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_pvc",
+      "category": "storage",
+      "layer": 40,
+      "description": "A pod's request for persistent storage from a storage class.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_persistent_volume_claim",
+          "kubernetes_persistent_volume_claim_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace",
+        "k8s_storage_class"
+      ]
+    },
+    {
+      "id": "k8s_service",
+      "category": "networking",
+      "layer": 40,
+      "description": "Stable network endpoint that load-balances across a set of pods.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_service",
+          "kubernetes_service_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_network_policy",
+      "category": "networking",
+      "layer": 40,
+      "description": "Pod-level ingress/egress traffic rules.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_network_policy",
+          "kubernetes_network_policy_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_role_binding",
+      "category": "security",
+      "layer": 50,
+      "description": "Grants a namespaced role to a subject (service account / user / group).",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_role_binding",
+          "kubernetes_role_binding_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_role",
+        "k8s_service_account"
+      ]
+    },
+    {
+      "id": "k8s_cluster_role_binding",
+      "category": "security",
+      "layer": 50,
+      "description": "Grants a cluster role to a subject across the whole cluster.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_cluster_role_binding",
+          "kubernetes_cluster_role_binding_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_cluster_role",
+        "k8s_service_account"
+      ]
+    },
+    {
+      "id": "k8s_deployment",
+      "category": "compute",
+      "layer": 50,
+      "description": "Declarative management of a replicated, stateless set of pods.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_deployment",
+          "kubernetes_deployment_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace",
+        "k8s_config_map",
+        "k8s_secret",
+        "k8s_service_account",
+        "k8s_pvc"
+      ]
+    },
+    {
+      "id": "k8s_stateful_set",
+      "category": "compute",
+      "layer": 50,
+      "description": "Manages stateful pods with stable identities and storage.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_stateful_set",
+          "kubernetes_stateful_set_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace",
+        "k8s_config_map",
+        "k8s_secret",
+        "k8s_pvc"
+      ]
+    },
+    {
+      "id": "k8s_daemonset",
+      "category": "compute",
+      "layer": 50,
+      "description": "Runs a copy of a pod on every (or selected) node.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_daemonset",
+          "kubernetes_daemon_set_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace",
+        "k8s_config_map",
+        "k8s_secret"
+      ]
+    },
+    {
+      "id": "k8s_job",
+      "category": "compute",
+      "layer": 50,
+      "description": "Runs pods to completion for a batch task.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_job",
+          "kubernetes_job_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace",
+        "k8s_config_map",
+        "k8s_secret"
+      ]
+    },
+    {
+      "id": "k8s_cron_job",
+      "category": "compute",
+      "layer": 50,
+      "description": "Runs a Job on a recurring schedule.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_cron_job",
+          "kubernetes_cron_job_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace",
+        "k8s_config_map",
+        "k8s_secret"
+      ]
+    },
+    {
+      "id": "k8s_ingress",
+      "category": "networking",
+      "layer": 50,
+      "description": "HTTP(S) routing rules exposing services outside the cluster.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_ingress",
+          "kubernetes_ingress_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_service"
+      ]
+    },
+    {
+      "id": "helm_release",
+      "category": "compute",
+      "layer": 50,
+      "description": "Installs a Helm chart (a packaged bundle of Kubernetes resources).",
+      "terraformResources": {
+        "helm": [
+          "helm_release"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "kubectl_manifest",
+      "category": "compute",
+      "layer": 50,
+      "description": "Applies an arbitrary raw Kubernetes manifest / CRD.",
+      "terraformResources": {
+        "kubectl": [
+          "kubectl_manifest"
+        ]
+      },
+      "deployAfter": [
+        "k8s_namespace"
+      ]
+    },
+    {
+      "id": "k8s_hpa",
+      "category": "compute",
+      "layer": 60,
+      "description": "Autoscales a workload's replica count on observed metrics.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_horizontal_pod_autoscaler",
+          "kubernetes_horizontal_pod_autoscaler_v2"
+        ]
+      },
+      "deployAfter": [
+        "k8s_deployment"
+      ]
+    },
+    {
+      "id": "k8s_pod_disruption_budget",
+      "category": "compute",
+      "layer": 60,
+      "description": "Limits voluntary disruptions to a workload's pods.",
+      "terraformResources": {
+        "kubernetes": [
+          "kubernetes_pod_disruption_budget",
+          "kubernetes_pod_disruption_budget_v1"
+        ]
+      },
+      "deployAfter": [
+        "k8s_deployment"
       ]
     }
   ]

@@ -1,6 +1,6 @@
 """Generate the static graph-viewer data file from the schema.
 
-Run as a module to (re)write ``site/data.js`` from ``schema/categories.yaml``::
+Run as a module to (re)write ``site/data.js`` from ``schema/resources.yaml``::
 
     python -m cloud_architect.site
 
@@ -25,21 +25,22 @@ def render_data(schema: Schema) -> str:
     """Return the JS source assigning the schema to ``window.GRAPH_DATA``."""
     payload = {
         "providers": schema.providers,
-        "groups": schema.groups,
+        "categories": schema.categories,
+        "universes": schema.universes,
         "layers": [
-            {"number": layer.number, "name": layer.name, "description": layer.description}
+            {"number": layer.number, "label": layer.label, "description": layer.description}
             for layer in schema.layers
         ],
-        "categories": [
+        "resources": [
             {
                 "id": c.id,
-                "group": c.group,
+                "category": c.category,
                 "layer": c.layer,
                 "description": c.description,
-                "terraformTypes": c.terraform_types,
+                "terraformResources": c.terraform_resources,
                 "deployAfter": c.deploy_after,
             }
-            for c in schema.categories
+            for c in schema.resources
         ],
     }
     body = json.dumps(payload, indent=2, ensure_ascii=False)
@@ -55,8 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     assert_valid(schema)  # never publish an invalid schema to the viewer
     SITE_DIR.mkdir(exist_ok=True)
     DATA_FILE.write_text(render_data(schema), encoding="utf-8")
-    edges = sum(len(c.deploy_after) for c in schema.categories)
-    print(f"wrote {DATA_FILE} — {len(schema.categories)} categories, {edges} edges")
+    edges = sum(len(c.deploy_after) for c in schema.resources)
+    print(f"wrote {DATA_FILE} — {len(schema.resources)} resources, {edges} edges")
     return 0
 
 
