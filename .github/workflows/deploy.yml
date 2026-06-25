@@ -1,0 +1,60 @@
+name: Deploy viewer to GitHub Pages
+
+# Publish only when you cut a release (or trigger it by hand from the Actions tab).
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+# Permissions the GitHub Pages deploy action needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; let an in-flight one finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # "Build": the viewer is a self-contained page that loads only site/data.js.
+      # Regenerate data.js from the schema so the published site always matches
+      # schema/resources.yaml, then gather just what the page serves into _site/.
+      - name: Assemble site
+        run: |
+          pip install pyyaml
+          python -m cloud_architect.site            # (re)writes site/data.js from the schema
+          mkdir -p _site
+          cp site/index.html site/data.js _site/
+          # Cache-bust: append ?v=<short-sha> to local js/css refs (i.e. data.js) so
+          # every deploy invalidates the browser/CDN cache. [^":] keeps it to relative
+          # paths — external https:// URLs are left alone.
+          VER="${GITHUB_SHA:0:7}"
+          sed -i -E "s#(src|href)=\"([^\":]+\.(js|css))\"#\1=\"\2?v=$VER\"#g" _site/index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
